@@ -8,8 +8,10 @@ Tady jsou jen hotové balíčky ke stažení (záložka **Releases**).
 
 1. Nainstaluj [WowUp](https://wowup.io).
 2. Ve WowUp otevři **Get Addons → Install from URL**.
-3. Vlož adresu tohoto repozitáře a potvrď **Import / Install**.
+3. Vlož adresu `https://github.com/Stand-Up-Comedy/SUCDR` a potvrď **Import / Install**.
 4. Nové verze ti WowUp nabídne samo.
+
+Do pole *GitHub Personal Access Token* v nastavení WowUp nic nevyplňuj, jinak instalace selže.
 
 ## Ruční instalace
 
