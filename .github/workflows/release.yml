@@ -1,0 +1,129 @@
+# Automatické vydání addonu SUCDR.
+#
+# Spustí se, když se do main dostane změna ve složce SUCDR/ (např. merge pull requestu).
+# Pokud verze v SUCDR/SUCDR.toc ještě nemá release, workflow:
+#   1. sestaví SUCDR-x.y.z.zip ze složky SUCDR/,
+#   2. vytvoří tag vx.y.z a GitHub release se zipem (WowUp ho nabídne hráčům),
+#   3. nahraje zip na CurseForge (projekt 1833525), pokud je nastavený secret CF_API_KEY.
+# Popis releasu se bere ze sekce "## x.y.z" v CHANGELOG.md.
+# Ruční spuštění: Actions → Release → Run workflow (např. když release smazal někdo omylem).
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "SUCDR/**"
+      - "CHANGELOG.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CF_PROJECT_ID: "1833525"
+      CF_API_KEY: ${{ secrets.CF_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verze z SUCDR.toc
+        run: |
+          TOC=SUCDR/SUCDR.toc
+          VERSION=$(tr -d '\r' < "$TOC" | sed -n 's/^## Version: *\([0-9][0-9.]*\).*/\1/p' | head -n 1)
+          INTERFACE=$(tr -d '\r' < "$TOC" | sed -n 's/^## Interface: *\([0-9][0-9]*\).*/\1/p' | head -n 1)
+          if [ -z "$VERSION" ] || [ -z "$INTERFACE" ]; then
+            echo "::error::V $TOC chybí řádek '## Version:' nebo '## Interface:'."
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=v$VERSION" >> "$GITHUB_ENV"
+          echo "INTERFACE=$INTERFACE" >> "$GITHUB_ENV"
+          echo "Verze $VERSION, Interface $INTERFACE"
+
+      - name: Existuje už release?
+        run: |
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release $TAG už existuje, nic se nevydává. Pro novou verzi zvyš '## Version:' v SUCDR.toc."
+            echo "SKIP=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Sestavení zipu
+        if: env.SKIP != '1'
+        run: |
+          mkdir -p dist
+          ZIP="dist/SUCDR-$VERSION.zip"
+          zip -r -X "$ZIP" SUCDR -x 'SUCDR/.*' 'SUCDR/**/.*'
+          unzip -l "$ZIP"
+          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+
+      - name: Poznámky k verzi z CHANGELOG.md
+        if: env.SKIP != '1'
+        run: |
+          awk -v v="$VERSION" '
+            /^## / { if (found) exit; if ($2 == v) { found = 1; next } }
+            found { print }
+          ' CHANGELOG.md | sed -e '/./,$!d' > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::warning::V CHANGELOG.md chybí sekce '## $VERSION', použije se zpráva posledního commitu."
+            git log -1 --format=%B > notes.md
+          fi
+          cat notes.md
+
+      - name: GitHub release
+        if: env.SKIP != '1'
+        run: |
+          gh release create "$TAG" "$ZIP" \
+            -R "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "SUCDR $VERSION" \
+            --notes-file notes.md
+
+      - name: Nahrání na CurseForge
+        if: env.SKIP != '1'
+        run: |
+          if [ -z "$CF_API_KEY" ]; then
+            echo "::warning::Secret CF_API_KEY není nastavený, na CurseForge se nic nenahrálo."
+            exit 0
+          fi
+          MAJOR=$((INTERFACE / 10000))
+          GAME_VERSION="$MAJOR.$((INTERFACE / 100 % 100)).$((INTERFACE % 100))"
+          echo "Interface $INTERFACE → patch $GAME_VERSION"
+
+          curl -sS --fail-with-body -H "X-Api-Token: $CF_API_KEY" \
+            https://wow.curseforge.com/api/game/versions > versions.json
+          VERSION_ID=$(jq --arg v "$GAME_VERSION" \
+            '[.[] | select(.name == $v) | .id] | first // empty' versions.json)
+          if [ -z "$VERSION_ID" ]; then
+            # CurseForge občas nový patch ještě nemá – vezmi nejnovější verzi stejné expanze.
+            VERSION_ID=$(jq --arg m "$MAJOR." \
+              '[.[] | select(.name | startswith($m))] | max_by(.id) | .id // empty' versions.json)
+            echo "::warning::CurseForge nezná verzi $GAME_VERSION, použije se nejnovější $MAJOR.x (id $VERSION_ID)."
+          fi
+          if [ -z "$VERSION_ID" ]; then
+            echo "::error::Na CurseForge se nenašla žádná verze hry pro $GAME_VERSION."
+            exit 1
+          fi
+
+          jq -n \
+            --rawfile changelog notes.md \
+            --arg name "SUCDR $VERSION" \
+            --argjson gv "$VERSION_ID" \
+            '{changelog: $changelog, changelogType: "markdown", displayName: $name,
+              gameVersions: [$gv], releaseType: "release"}' > metadata.json
+          cat metadata.json
+
+          curl -sS --fail-with-body \
+            -H "X-Api-Token: $CF_API_KEY" \
+            -F "metadata=<metadata.json" \
+            -F "file=@$ZIP" \
+            "https://wow.curseforge.com/api/projects/$CF_PROJECT_ID/upload-file"
+          echo
+          echo "Hotovo: SUCDR $VERSION je na GitHubu i na CurseForge."
