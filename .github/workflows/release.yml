@@ -32,7 +32,7 @@ jobs:
       CF_PROJECT_ID: "1833525"
       CF_API_KEY: ${{ secrets.CF_API_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Verze z SUCDR.toc
         run: |
