@@ -2,7 +2,7 @@
 
 Addon do World of Warcraft (Midnight) pro guildu Stand Up Comedy: death roll o goldy ve skupině, s evidencí dluhů, statistikami a žebříčkem.
 
-Tady jsou jen hotové balíčky ke stažení (záložka **Releases**).
+Tady jsou jen hotové balíčky ke stažení (záložka **Releases**). Addon je i na [CurseForge](https://www.curseforge.com/wow/addons/stand-up-comedy-dr).
 
 ## Instalace přes WowUp (doporučeno, aktualizace samy)
 
@@ -20,3 +20,9 @@ Do pole *GitHub Personal Access Token* v nastavení WowUp nic nevyplňuj, jinak 
 3. Úplně restartuj hru.
 
 Ve hře: `/sucdr` otevře okno, `/sucdr help` vypíše příkazy.
+
+## Vydání nové verze (pro správce)
+
+Po zveřejnění nového releasu se zip `SUCDR-x.y.z.zip` automaticky nahraje na CurseForge (workflow `.github/workflows/curseforge.yml`). Verze hry se bere z řádku `## Interface:` v `SUCDR.toc`, changelog z popisu releasu a pre-release se nahraje jako beta.
+
+Workflow potřebuje secret `CF_API_KEY` (API token z CurseForge) v **Settings → Secrets and variables → Actions**. Starší release jde nahrát ručně přes **Actions → Upload to CurseForge → Run workflow** a zadání tagu.
