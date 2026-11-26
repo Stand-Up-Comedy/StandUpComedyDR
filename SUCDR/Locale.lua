@@ -439,6 +439,7 @@ cs.help = {
     "/sucdr version - moje verze a verze ostatních hráčů",
     "/sucdr export - zapíše export pro Discord bota (udělá /reload)",
     "/sucdr collect - (jen guild master) sebere od online členů guildy hry za posledních 30 dní",
+    "/sucdr collect on|off - (jen guild master) automatický sběr po přihlášení",
 }
 en.help = {
     "/sucdr - opens the window",
@@ -456,6 +457,7 @@ en.help = {
     "/sucdr version - my version and the versions of other players",
     "/sucdr export - writes the Discord bot export (reloads the UI)",
     "/sucdr collect - (guild master only) collects the last 30 days of games from online guild members",
+    "/sucdr collect on|off - (guild master only) automatic collecting after login",
 }
 
 ---------------------------------------------------------------------------
@@ -463,8 +465,10 @@ en.help = {
 ---------------------------------------------------------------------------
 cs.btn_collect = "Sebrat hry z guildy"
 en.btn_collect = "Collect guild games"
-cs.collect_tip = "Požádá všechny online členy guildy s addonem o hry a stav dluhů za posledních 30 dní."
-en.collect_tip = "Asks all online guild members with the addon for their games and debt status from the last 30 days."
+cs.collect_tip = "Požádá všechny online členy guildy s addonem o hry a stav dluhů za posledních 30 dní. "
+    .. "Po přihlášení se to děje samo (vypnutí: /sucdr collect off)."
+en.collect_tip = "Asks all online guild members with the addon for their games and debt status from the last 30 days. "
+    .. "This also happens automatically after you log in (turn off: /sucdr collect off)."
 cs.collect_not_gm = "Hry z guildy může sbírat jen guild master."
 en.collect_not_gm = "Only the guild master can collect guild games."
 cs.collect_wait = "Sběr už běží, zkus to znovu za minutu."
@@ -473,6 +477,18 @@ cs.collect_sent = "Žádost o hry za posledních %d dní odeslána guildě. Odpo
 en.collect_sent = "Asked the guild for games from the last %d days. Replies arrive over a few minutes."
 cs.collect_done = "Sběr her: zatím %d nových her od %d hráčů. Další můžou ještě chvíli dobíhat."
 en.collect_done = "Collecting games: %d new games from %d players so far. More may still arrive."
+cs.collect_auto_sent = "Automatický sběr her z guildy (posledních %d dní)..."
+en.collect_auto_sent = "Automatically collecting guild games (last %d days)..."
+cs.collect_finished = "Sběr her dokončen: %d nových her od %d hráčů. Export pro Discord se zapíše při příštím /reload nebo odhlášení."
+en.collect_finished = "Collecting finished: %d new games from %d players. The Discord export is written on the next /reload or logout."
+cs.collect_nobody = "Sběr her dokončen: nikdo z guildy neodpověděl (nikdo online s verzí 0.9.5+)."
+en.collect_nobody = "Collecting finished: nobody in the guild replied (nobody online with version 0.9.5+)."
+cs.collect_export_confirm = "Sběr dokončen: %d nových her od %d hráčů.\nZapsat teď export pro Discord (udělá /reload)?"
+en.collect_export_confirm = "Collecting finished: %d new games from %d players.\nWrite the Discord export now (reloads the UI)?"
+cs.collect_auto_on = "Automatický sběr her po přihlášení zapnut."
+en.collect_auto_on = "Automatic game collecting after login is on."
+cs.collect_auto_off = "Automatický sběr her po přihlášení vypnut (zapnutí: /sucdr collect on)."
+en.collect_auto_off = "Automatic game collecting after login is off (turn on: /sucdr collect on)."
 cs.collected_tag = "SEBRÁNO"
 en.collected_tag = "COLLECTED"
 cs.btn_log_request = "Vyžádat log"

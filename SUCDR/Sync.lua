@@ -106,33 +106,73 @@ end)
 local collecting = nil     -- { until = čas, games = n, from = { [jméno] = true } }
 local lastCollect = 0
 
-function S.RequestCollect()
+local function countFrom(c)
+    local n = 0
+    for _ in pairs(c.from) do n = n + 1 end
+    return n
+end
+
+-- Po sběru nabídne rovnou zapsat export pro Discord (export se zapisuje při /reload).
+-- Během rozehrané hry reload nejde, export se pak zapíše až při odhlášení.
+function S.OfferExport(games, players)
+    local s = ns.Game.state
+    if s and not s.test and s.phase ~= "done" then
+        ns.Print(T("collect_finished", games, players))
+        return
+    end
+    ns.UI.Confirm(T("collect_export_confirm", games, players),
+        { { T("btn_yes"), ReloadUI, true }, { T("btn_no") } })
+end
+
+-- auto = true: automatický sběr po přihlášení (bez průběžných hlášek a bez dotazu na export)
+function S.RequestCollect(auto)
     if not S.IsGuildMaster() then
-        ns.Print(T("collect_not_gm"))
+        if not auto then ns.Print(T("collect_not_gm")) end
         return
     end
     if GetTime() - lastCollect < 60 then
-        ns.Print(T("collect_wait"))
+        if not auto then ns.Print(T("collect_wait")) end
         return
     end
     lastCollect = GetTime()
     local c = { untilT = GetTime() + 300, games = 0, from = {} }
     collecting = c
     ns.SendGuild("COLLECT", tostring(COLLECT_DAYS))
-    ns.Print(T("collect_sent", COLLECT_DAYS))
-    -- průběžný souhrn po dvou minutách; odpovědi se přijímají ještě 5 minut
-    -- (kdo má hodně her, posílá je kvůli limitu zpráv postupně)
-    C_Timer.After(120, function()
-        if collecting ~= c then return end
-        local n = 0
-        for _ in pairs(c.from) do n = n + 1 end
-        ns.Print(T("collect_done", c.games, n))
-        ns.RefreshUI()
-    end)
+    ns.Print(T(auto and "collect_auto_sent" or "collect_sent", COLLECT_DAYS))
+    -- odpovědi se přijímají 5 minut (kdo má hodně her, posílá je kvůli limitu zpráv postupně)
+    if not auto then
+        C_Timer.After(120, function()
+            if collecting ~= c then return end
+            ns.Print(T("collect_done", c.games, countFrom(c)))
+            ns.RefreshUI()
+        end)
+    end
     C_Timer.After(300, function()
         if collecting == c then collecting = nil end
+        local n = countFrom(c)
+        ns.RefreshUI()
+        if n == 0 then
+            if not auto then ns.Print(T("collect_nobody")) end
+        elseif auto then
+            ns.Print(T("collect_finished", c.games, n))
+        else
+            S.OfferExport(c.games, n)
+        end
     end)
 end
+
+-- Automatický sběr po přihlášení guild mastera (vypnutí: /sucdr collect off)
+function S.SetAutoCollect(on)
+    ns.db.autoCollect = on
+    ns.Print(T(on and "collect_auto_on" or "collect_auto_off"))
+end
+
+ns.On("PLAYER_LOGIN", function()
+    -- informace o guildě se po přihlášení načítají postupně, proto chvíli počkám
+    C_Timer.After(60, function()
+        if ns.db.autoCollect ~= false and S.IsGuildMaster() then S.RequestCollect(true) end
+    end)
+end)
 
 local answered = {}
 ns.OnComm("COLLECT", function(sender, rest, channel)

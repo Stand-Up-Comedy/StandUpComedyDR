@@ -2,6 +2,10 @@
 
 Poznámky k verzím SUCDR. Při vydání nové verze sem přidej sekci `## x.y.z` nahoru – text se použije jako popis releasu na GitHubu i jako changelog na CurseForge.
 
+## 0.9.6
+
+Guild master nove sbira hry z guildy automaticky minutu po prihlaseni (vypnuti: `/sucdr collect off`, zapnuti: `/sucdr collect on`). Po rucnim sberu addon rovnou nabidne zapsat export pro Discord bota, takze bot ma data za celou guildu.
+
 ## 0.9.5
 
 Zaplacené dluhy se nově dorovnají i u ostatních: po přihlášení, při joinu nového hráče do skupiny a tlačítkem Sync (žádné staré nezaplacené dluhy u třetích stran). Guild master může v Nastavení (nebo `/sucdr collect`) sebrat od online členů guildy hry a stav dluhů za posledních 30 dní a u sebrané hry si vyžádat log od hostitele. Novinky fungují jen mezi hráči s verzí 0.9.5, aktualizujte prosím všichni.

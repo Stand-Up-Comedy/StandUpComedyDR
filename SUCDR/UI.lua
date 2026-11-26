@@ -1379,7 +1379,11 @@ SlashCmdList.SUCDR = function(input)
     elseif cmd == "export" then
         ns.Export.Run()
     elseif cmd == "collect" then
-        ns.Sync.RequestCollect()
+        if arg == "on" or arg == "off" then
+            ns.Sync.SetAutoCollect(arg == "on")
+        else
+            ns.Sync.RequestCollect()
+        end
     elseif cmd == "minimap" then
         ns.ResetMinimapButton()
     elseif cmd == "lang" then
