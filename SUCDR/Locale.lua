@@ -438,6 +438,7 @@ cs.help = {
     "/sucdr minimap - vrátí ikonu u minimapy na výchozí místo",
     "/sucdr version - moje verze a verze ostatních hráčů",
     "/sucdr export - zapíše export pro Discord bota (udělá /reload)",
+    "/sucdr collect - (jen guild master) sebere od online členů guildy hry za posledních 30 dní",
 }
 en.help = {
     "/sucdr - opens the window",
@@ -454,7 +455,32 @@ en.help = {
     "/sucdr minimap - resets the minimap icon to its default place",
     "/sucdr version - my version and the versions of other players",
     "/sucdr export - writes the Discord bot export (reloads the UI)",
+    "/sucdr collect - (guild master only) collects the last 30 days of games from online guild members",
 }
+
+---------------------------------------------------------------------------
+-- Sběr her (guild master) a log od hostitele
+---------------------------------------------------------------------------
+cs.btn_collect = "Sebrat hry z guildy"
+en.btn_collect = "Collect guild games"
+cs.collect_tip = "Požádá všechny online členy guildy s addonem o hry a stav dluhů za posledních 30 dní."
+en.collect_tip = "Asks all online guild members with the addon for their games and debt status from the last 30 days."
+cs.collect_not_gm = "Hry z guildy může sbírat jen guild master."
+en.collect_not_gm = "Only the guild master can collect guild games."
+cs.collect_wait = "Sběr už běží, zkus to znovu za minutu."
+en.collect_wait = "Collecting is already running, try again in a minute."
+cs.collect_sent = "Žádost o hry za posledních %d dní odeslána guildě. Odpovědi dobíhají pár minut."
+en.collect_sent = "Asked the guild for games from the last %d days. Replies arrive over a few minutes."
+cs.collect_done = "Sběr her: zatím %d nových her od %d hráčů. Další můžou ještě chvíli dobíhat."
+en.collect_done = "Collecting games: %d new games from %d players so far. More may still arrive."
+cs.collected_tag = "SEBRÁNO"
+en.collected_tag = "COLLECTED"
+cs.btn_log_request = "Vyžádat log"
+en.btn_log_request = "Request log"
+cs.log_requested = "Žádost o log odeslána hostiteli %s (musí být online)."
+en.log_requested = "Log requested from the host %s (they must be online)."
+cs.log_received = "Log hry od %s přijat."
+en.log_received = "Game log received from %s."
 
 ---------------------------------------------------------------------------
 -- Verze

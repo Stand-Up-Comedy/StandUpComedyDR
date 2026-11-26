@@ -2,7 +2,7 @@
 
 Addon do World of Warcraft (Midnight) pro guildu Stand Up Comedy: death roll o goldy ve skupině, s evidencí dluhů, statistikami a žebříčkem.
 
-Tady jsou jen hotové balíčky ke stažení (záložka **Releases**).
+Hotové balíčky ke stažení jsou v záložce **Releases**, zdrojový kód addonu je ve složce `SUCDR/`.
 
 ## Instalace přes WowUp (doporučeno, aktualizace samy)
 

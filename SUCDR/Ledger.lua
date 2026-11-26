@@ -238,23 +238,27 @@ end
 -- Dluh od jiného hráče: věřit se dá jen tomu, co hlásí sám proti sobě.
 -- Dlužník (from) potvrzuje, že dluží; věřitel (to) potvrzuje, že je zaplaceno.
 -- Nový dluh od věřitele se uloží jen jako neověřený.
+-- Dluh, který se mě netýká, jen aktualizuji (zaplaceno/potvrzeno), pokud ho už znám
+-- (např. z hry viděné v raidu) - díky tomu nezůstávají u ostatních staré "cuplíky".
 ns.OnComm("DEBT", function(sender, rest)
     local id, game, from, to, amount, t, paid = strsplit(";", rest)
     amount = tonumber(amount)
     if not paid or not amount or amount < 1 or from == to or (sender ~= from and sender ~= to) then return end
     if id ~= (game or "") .. ":" .. from then return end
     local me = ns.Me()
-    if from ~= me and to ~= me then return end
     local d = db().debts[id]
     if not d then
+        if from ~= me and to ~= me then return end
         db().debts[id] = {
             id = id, game = game, from = from, to = to, amount = amount, time = tonumber(t),
             paid = (paid == "1" and sender == to),
+            paidTime = (paid == "1" and sender == to) and time() or nil,
             unconfirmed = (sender ~= from) or nil,
         }
     else
-        if sender == from and d.unconfirmed and d.from == from then d.unconfirmed = nil end
-        if paid == "1" and sender == to and d.to == to and not d.paid then
+        if d.from ~= from or d.to ~= to then return end
+        if sender == from and d.unconfirmed then d.unconfirmed = nil end
+        if paid == "1" and sender == to and not d.paid then
             d.paid = true
             d.paidTime = time()
         end

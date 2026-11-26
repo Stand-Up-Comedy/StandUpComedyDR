@@ -955,12 +955,17 @@ local function RefreshHistory()
         local pays = g.loser and ("   " .. T("hist_pays") .. " |cffff6a66" .. ns.Display(g.loser) .. "|r") or ""
         local tag = (g.test and (ACCENT .. "TEST|r  ") or "")
             .. (g.unverified and ("|cffffcc00" .. T("debt_unconfirmed_tag") .. "|r  ") or "")
+            .. (g.collected and ("|cff66b3ff" .. T("collected_tag") .. "|r  ") or "")
         row.text:SetText(("%s|cff888888%s|r   %s |cff888888(%d)|r   %s   %s |cff66e680%s|r%s"):format(
             tag, fmtTime(g.time), ns.Game.ModeName(g.mode), #g.players,
             ns.Gold(g.bet), T("hist_winner"), ns.Display(g.winner), pays))
         if g.log then
             row.button:SetText(T("btn_log"))
             row.button:SetScript("OnClick", function() UI.ShowLog(T("log_title_game"), gameLogLines(g)) end)
+            row.button:Show()
+        elseif ns.Sync.CanRequestLog(g) then
+            row.button:SetText(T("btn_log_request"))
+            row.button:SetScript("OnClick", function() ns.Sync.RequestLog(g) end)
             row.button:Show()
         end
     end, T("hist_empty"))
@@ -1202,6 +1207,17 @@ local function BuildSettings(p)
     sp.remindNow:SetPoint("LEFT", sp.selftest, "RIGHT", 6, 0)
     sp.export = Loc(Btn(p, "", 214, 26, function() ns.Export.Run() end), "btn_export")
     sp.export:SetPoint("TOPLEFT", 0, -368)
+    -- jen pro guild mastera: sebrat hry od celé guildy
+    sp.collect = Loc(Btn(p, "", 214, 26, function() ns.Sync.RequestCollect() end), "btn_collect")
+    sp.collect:SetPoint("LEFT", sp.export, "RIGHT", 6, 0)
+    sp.collect:HookScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine(T("btn_collect"))
+        GameTooltip:AddLine(T("collect_tip"), 1, 1, 1, true)
+        GameTooltip:Show()
+        UI.CzechTooltip()
+    end)
+    sp.collect:HookScript("OnLeave", function() GameTooltip:Hide() end)
 
     local cmds = Loc(Label(p, "", "label"), "set_commands")
     cmds:SetPoint("BOTTOMLEFT", 2, 22)
@@ -1220,6 +1236,7 @@ local function RefreshSettings()
     sp.remind:SetChecked(ns.db.remind)
     sp.font:SetChecked(ns.db.font)
     sp.testMode:SetText(T(ns.Game.testMode and "btn_testmode_off" or "btn_testmode_on"))
+    sp.collect:SetShown(ns.Sync.IsGuildMaster())
     sp.version:SetText(T("set_version", version()))
 end
 
@@ -1361,6 +1378,8 @@ SlashCmdList.SUCDR = function(input)
         ns.Version.Print()
     elseif cmd == "export" then
         ns.Export.Run()
+    elseif cmd == "collect" then
+        ns.Sync.RequestCollect()
     elseif cmd == "minimap" then
         ns.ResetMinimapButton()
     elseif cmd == "lang" then
