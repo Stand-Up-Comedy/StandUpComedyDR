@@ -1,0 +1,535 @@
+-- SUCDR - překlady (čeština a angličtina)
+-- ns.T("klic", ...) vrátí text v jazyce z nastavení (ns.db.lang), formátovaný přes string.format.
+-- Chybějící anglický text spadne na češtinu, chybějící klíč se vrátí jako je.
+local _, ns = ...
+
+ns.LANGS = { "cs", "en" }
+ns.LANG_NAMES = { cs = "Čeština", en = "English" }
+
+local L = { cs = {}, en = {} }
+ns.Locales = L
+
+local cs, en = L.cs, L.en
+
+---------------------------------------------------------------------------
+-- Režimy
+---------------------------------------------------------------------------
+cs.mode_auto = "Auto"
+en.mode_auto = "Auto"
+cs.mode_duel = "Duel"
+en.mode_duel = "Duel"
+cs.mode_mass = "Hromadný"
+en.mode_mass = "Mass"
+cs.mode_ring = "Okruh"
+en.mode_ring = "Ring"
+
+cs.help_auto = "2 hráči = Duel, 3 a víc = Hromadný."
+en.help_auto = "2 players = Duel, 3 or more = Mass."
+cs.help_duel = "Přesně 2 hráči, střídavé hody 1..předchozí výsledek. Kdo hodí 1, platí druhému."
+en.help_duel = "Exactly 2 players taking turns, rolling 1..previous result. Whoever rolls 1 pays the other."
+cs.help_mass = "Všichni hází naráz, každý od svého posledního hodu. Kdo hodí 1, vypadává. Poslední bere sázku od každého."
+en.help_mass = "Everyone rolls at once, each from their own last roll. Rolling 1 knocks you out. "
+    .. "The last one standing collects the bet from everyone."
+cs.help_ring = "Hází se po řadě (náhodné pořadí) se společným maximem. Kdo hodí 1, platí sázku tomu, kdo házel před ním."
+en.help_ring = "Players roll in turn (random order) with a shared maximum. "
+    .. "Whoever rolls 1 pays the bet to the player who rolled before them."
+
+---------------------------------------------------------------------------
+-- Průběh hry (oznámení a zprávy)
+---------------------------------------------------------------------------
+cs.not_your_turn = "Teď nejsi na řadě."
+en.not_your_turn = "It's not your turn."
+cs.your_turn = "Jsi na řadě! Klikni HODIT nebo napiš /sucdr roll"
+en.your_turn = "Your turn! Click ROLL or type /sucdr roll"
+cs.bot_rolled = "%s hodil %d (1-%d)"
+en.bot_rolled = "%s rolled %d (1-%d)"
+cs.need_group = "Musíš být v partě nebo raidu. Pro zkoušení o samotě zapni /sucdr test"
+en.need_group = "You need to be in a party or raid. To try it alone, use /sucdr test"
+cs.game_exists = "Ve skupině už běží hra."
+en.game_exists = "A game is already running in your group."
+cs.bad_bet = "Zadej sázku aspoň 2g (první hod je 1 až sázka)."
+en.bad_bet = "Enter a bet of at least 2g (the first roll is 1 to the bet)."
+cs.test_created = "Testovací hra (%s): přidej boty tlačítkem Přidat bota."
+en.test_created = "Test game (%s): add bots with the Add bot button."
+cs.created = "%s zakládá death roll (%s) o %s, start %d. Přidej se: napiš join do chatu nebo /sucdr join"
+en.created = "%s is starting a death roll (%s) for %s, start %d. To join, type join in chat or /sucdr join"
+cs.mode_changed = "Režim hry změněn na %s."
+en.mode_changed = "Game mode changed to %s."
+cs.not_in_group = "%s není ve skupině."
+en.not_in_group = "%s is not in your group."
+cs.player_joined = "%s jde do hry (%d hráčů)."
+en.player_joined = "%s joins the game (%d players)."
+cs.player_left = "%s odchází (%d hráčů)."
+en.player_left = "%s leaves the game (%d players)."
+cs.need_target = "Nejdřív označ hráče."
+en.need_target = "Target a player first."
+cs.no_lobby = "Ve skupině teď není žádné lobby."
+en.no_lobby = "There is no open lobby in your group."
+cs.cancelled = "Hra zrušena."
+en.cancelled = "Game cancelled."
+cs.need_two = "Potřeba aspoň 2 hráči."
+en.need_two = "At least 2 players are needed."
+cs.duel_two = "Duel je jen pro 2 hráče. Změň režim nebo počet hráčů."
+en.duel_two = "Duel is for exactly 2 players. Change the mode or the number of players."
+cs.duel_start = "Duel %s vs %s o %s! Začíná %s: /roll %d"
+en.duel_start = "Duel %s vs %s for %s! %s starts: /roll %d"
+cs.ring_start = "Okruh o %s, %d hráčů. Kdo hodí 1, platí tomu před sebou. Pořadí: %s"
+en.ring_start = "Ring for %s, %d players. Whoever rolls 1 pays the player before them. Order: %s"
+cs.ring_first = "Začíná %s: /roll %d"
+en.ring_first = "%s starts: /roll %d"
+cs.mass_start = "Hromadný death roll: %d hráčů, sázka %s, vítěz bere %s!"
+en.mass_start = "Mass death roll: %d players, bet %s, the winner takes %s!"
+cs.timeout_turn = "%s nehodil včas a prohrává."
+en.timeout_turn = "%s didn't roll in time and loses."
+cs.round_start = "Kolo %d: házejte všichni! Ve hře: %d.%s"
+en.round_start = "Round %d: everyone roll! Players left: %d.%s"
+cs.round_limit = " Limit %ds."
+en.round_limit = " Limit %ds."
+cs.timeout_round = "Nehodili včas a vypadávají: %s"
+en.timeout_round = "Didn't roll in time and are out: %s"
+cs.ones_out = "Hodili 1 a vypadávají: %s"
+en.ones_out = "Rolled 1 and are out: %s"
+cs.all_ones = "Všichni hodili 1! Rozstřel od začátku: %s"
+en.all_ones = "Everyone rolled 1! Tiebreak from the start: %s"
+cs.nobody_rolled = "Nikdo nehodil."
+en.nobody_rolled = "Nobody rolled."
+cs.invalid_roll = "%s: neplatný hod %d-%d, má být 1-%d."
+en.invalid_roll = "%s: invalid roll %d-%d, it should be 1-%d."
+cs.not_on_turn = "%s není na tahu, hod se nepočítá."
+en.not_on_turn = "%s is not on turn, the roll doesn't count."
+cs.already_rolled = "%s už v tomhle kole házel, hod se nepočítá."
+en.already_rolled = "%s has already rolled this round, the roll doesn't count."
+cs.ring_lost = "%s prohrává! Platí %s hráči %s."
+en.ring_lost = "%s loses! Pays %s to %s."
+cs.winner_one = "Vítěz: %s! %s mu dluží %s."
+en.winner_one = "Winner: %s! %s owes them %s."
+cs.winner_all = "Vítěz: %s! Každý z %d poražených mu dluží %s (celkem %s)."
+en.winner_all = "Winner: %s! Each of the %d losers owes them %s (%s in total)."
+cs.lobby_notice = "%s zakládá hru (%s) o %s. Přidej se: |cffffff00/sucdr join|r"
+en.lobby_notice = "%s started a game (%s) for %s. Join with |cffffff00/sucdr join|r"
+cs.game_conflict = "Ve skupině už je starší hra od %s, tvoje lobby se ruší."
+en.game_conflict = "%s already has an older game in your group, your lobby is cancelled."
+cs.host_reset = "Hostitel %s dal reload nebo se odhlásil, jeho hra skončila."
+en.host_reset = "The host %s reloaded or logged out, their game has ended."
+
+---------------------------------------------------------------------------
+-- Dluhy
+---------------------------------------------------------------------------
+cs.win_one = "Vyhrál jsi! %s ti dluží %s."
+en.win_one = "You won! %s owes you %s."
+cs.win_all = "Vyhrál jsi! Poražení ti dluží %s každý."
+en.win_all = "You won! Each loser owes you %s."
+cs.lose = "Prohra. Dlužíš %s hráči %s."
+en.lose = "You lost. You owe %s to %s."
+cs.safe = "Tentokrát jsi vyvázl bez ztráty."
+en.safe = "You got away without paying this time."
+cs.btn_pay = "Zaplatit"
+en.btn_pay = "Pay"
+cs.pay_tip = "Otevře trade s hráčem %s a vyplní %s (všechny tvoje dluhy u něj). Trade potvrdíš sám."
+en.pay_tip = "Opens a trade with %s and fills in %s (all your debts to them). You confirm the trade yourself."
+cs.pay_no_money = "Na zaplacení %s nemáš dost goldů."
+en.pay_no_money = "You don't have enough gold to pay %s."
+cs.pay_not_near = "%s není ve skupině ani v cíli. Označ ho a postav se k němu."
+en.pay_not_near = "%s is not in your group or targeted. Target them and stand next to them."
+cs.pay_started = "Otevírám trade: %s pro %s. Zkontroluj částku a potvrď trade."
+en.pay_started = "Opening a trade: %s for %s. Check the amount and accept the trade."
+cs.remind_item = "%s %s (%d d)"
+en.remind_item = "%s %s (%d d)"
+cs.remind_owe = "|cffff6a66Dlužíš celkem %s|r: %s"
+en.remind_owe = "|cffff6a66You owe %s in total|r: %s"
+cs.remind_owed = "|cff66e680Dluží ti celkem %s|r: %s"
+en.remind_owed = "|cff66e680You are owed %s in total|r: %s"
+cs.remind_in_group_owe = "Ve skupině je %s, dlužíš mu %s. Zaplatit jde v záložce Dluhy."
+en.remind_in_group_owe = "%s is in your group, you owe them %s. You can pay on the Debts tab."
+cs.remind_in_group_owed = "Ve skupině je %s, dluží ti %s."
+en.remind_in_group_owed = "%s is in your group and owes you %s."
+cs.game_unverified = "Přišel výsledek hry od %s, kterou jsi neviděl. Dluh je neověřený, zkontroluj ho v záložce Dluhy."
+en.game_unverified = "Received a game result from %s that you did not see. The debt is unverified, check it on the Debts tab."
+cs.trade_paid = "Dluh %s -> %s (%s) zaplacen tradem."
+en.trade_paid = "Debt %s -> %s (%s) paid by trade."
+cs.trade_partial = "Částečná platba %s, zbývá %s."
+en.trade_partial = "Partial payment of %s, %s remaining."
+cs.test_cleared = "Smazáno %d testovacích her a jejich dluhy."
+en.test_cleared = "Deleted %d test games and their debts."
+cs.no_guild = "Nejsi v guildě."
+en.no_guild = "You are not in a guild."
+cs.sync_sent = "Žádost o synchronizaci odeslána do guildy."
+en.sync_sent = "Sync request sent to the guild."
+
+---------------------------------------------------------------------------
+-- Okno
+---------------------------------------------------------------------------
+cs.tab_game = "Hra"
+en.tab_game = "Game"
+cs.tab_debts = "Dluhy"
+en.tab_debts = "Debts"
+cs.tab_history = "Historie"
+en.tab_history = "History"
+cs.tab_settings = "Nastavení"
+en.tab_settings = "Settings"
+cs.tab_stats = "Statistiky"
+en.tab_stats = "Stats"
+
+cs.stats_mine = "Moje statistiky"
+en.stats_mine = "My stats"
+cs.stats_games = "Hry"
+en.stats_games = "Games"
+cs.stats_wins = "Výhry"
+en.stats_wins = "Wins"
+cs.stats_net = "Bilance"
+en.stats_net = "Balance"
+cs.stats_best = "Největší výhra"
+en.stats_best = "Biggest win"
+cs.stats_streak = "Série výher: teď %d, nejlepší %d"
+en.stats_streak = "Win streak: current %d, best %d"
+cs.stats_board = "Žebříček guildy"
+en.stats_board = "Guild leaderboard"
+cs.stats_period_all = "Období: vše"
+en.stats_period_all = "Period: all time"
+cs.stats_period_30 = "Období: 30 dní"
+en.stats_period_30 = "Period: 30 days"
+cs.stats_period_7 = "Období: 7 dní"
+en.stats_period_7 = "Period: 7 days"
+cs.stats_sort = "Řadit: %s"
+en.stats_sort = "Sort: %s"
+cs.stats_sort_net = "bilance"
+en.stats_sort_net = "balance"
+cs.stats_sort_wins = "výhry"
+en.stats_sort_wins = "wins"
+cs.stats_sort_games = "počet her"
+en.stats_sort_games = "games"
+cs.stats_row = "výhry %d / %d her"
+en.stats_row = "%d wins / %d games"
+cs.stats_empty = "Zatím žádné odehrané hry."
+en.stats_empty = "No games played yet."
+cs.stats_badges = "Odznaky:"
+en.stats_badges = "Badges:"
+cs.stats_no_badges = "Odznaky: zatím žádné"
+en.stats_no_badges = "Badges: none yet"
+cs.badge_highroller = "High roller"
+en.badge_highroller = "High roller"
+cs.badge_highroller_d = "Největší výhra v jedné hře: %s"
+en.badge_highroller_d = "Biggest win in a single game: %s"
+cs.badge_streak = "Nezastavitelný"
+en.badge_streak = "Unstoppable"
+cs.badge_streak_d = "%d výher v řadě"
+en.badge_streak_d = "%d wins in a row"
+cs.badge_bigloss = "Největší prohra"
+en.badge_bigloss = "Biggest loss"
+cs.badge_bigloss_d = "Největší prohraná sázka v jedné hře: %s"
+en.badge_bigloss_d = "Lost the most in a single game: %s"
+cs.badge_unlucky = "Smolař"
+en.badge_unlucky = "Unlucky"
+cs.badge_unlucky_d = "%d proher v řadě"
+en.badge_unlucky_d = "%d losses in a row"
+cs.badge_veteran10 = "Štamgast"
+en.badge_veteran10 = "Regular"
+cs.badge_veteran50 = "Veterán"
+en.badge_veteran50 = "Veteran"
+cs.badge_veteran100 = "Mazák"
+en.badge_veteran100 = "Old hand"
+cs.badge_veteran500 = "Legenda"
+en.badge_veteran500 = "Legend"
+cs.badge_veteran_d = "%d odehraných her"
+en.badge_veteran_d = "%d games played"
+cs.stats_note ="Ze her, které tvůj addon viděl (ve skupině nebo přes guildu)."
+en.stats_note = "From the games your addon has seen (in your group or via the guild)."
+
+cs.bet_label = "Sázka (g)"
+en.bet_label = "Bet (g)"
+cs.start_label = "Start"
+en.start_label = "Start"
+cs.limit_label = "Limit (s)"
+en.limit_label = "Limit (s)"
+cs.btn_create = "Založit hru"
+en.btn_create = "Create game"
+cs.btn_create_test = "Založit test"
+en.btn_create_test = "Create test"
+cs.btn_join = "Přidat se"
+en.btn_join = "Join"
+cs.btn_leave = "Odejít"
+en.btn_leave = "Leave"
+cs.btn_target = "Přidat cíl"
+en.btn_target = "Add target"
+cs.btn_bot = "Přidat bota"
+en.btn_bot = "Add bot"
+cs.btn_start = "Spustit"
+en.btn_start = "Start"
+cs.btn_cancel = "Zrušit hru"
+en.btn_cancel = "Cancel game"
+cs.btn_mode = "Režim: %s"
+en.btn_mode = "Mode: %s"
+cs.mode_tip_click = "Kliknutím přepneš režim."
+en.mode_tip_click = "Click to switch the mode."
+cs.btn_roll = "HODIT"
+en.btn_roll = "ROLL"
+cs.btn_roll_range = "HODIT 1-%d"
+en.btn_roll_range = "ROLL 1-%d"
+cs.players_header = "Hráči"
+en.players_header = "Players"
+
+cs.st_none = "Žádná hra. Založ novou, nebo počkej na pozvánku ve skupině."
+en.st_none = "No game. Create one or wait for an invite in your group."
+cs.st_lobby = "%s - čeká se na hráče (%d)\nSázka %s, start %d, hostitel %s"
+en.st_lobby = "%s - waiting for players (%d)\nBet %s, start %d, host %s"
+cs.st_turn = "%s o %s\nNa tahu: %s (1-%d)"
+en.st_turn = "%s for %s\nTurn: %s (1-%d)"
+cs.st_mass = "Hromadný o %s, kolo %d\nVe hře %d z %d"
+en.st_mass = "Mass for %s, round %d\n%d of %d still in"
+cs.st_ring_done = "|cffff6060%s|r prohrál a platí %s hráči |cff60ff60%s|r."
+en.st_ring_done = "|cffff6060%s|r lost and pays %s to |cff60ff60%s|r."
+cs.st_done = "|cff60ff60Vítěz: %s|r\nKaždý poražený mu dluží %s."
+en.st_done = "|cff60ff60Winner: %s|r\nEach loser owes them %s."
+cs.st_test_prefix = "[TESTOVACÍ REŽIM] "
+en.st_test_prefix = "[TEST MODE] "
+
+cs.pl_winner = "VÍTĚZ"
+en.pl_winner = "WINNER"
+cs.pl_pays = "platí"
+en.pl_pays = "pays"
+cs.pl_out = "vypadl"
+en.pl_out = "out"
+cs.pl_rolled_n = " (hodil %d)"
+en.pl_rolled_n = " (rolled %d)"
+cs.pl_safe = "bez ztráty"
+en.pl_safe = "safe"
+cs.pl_ready = "připraven"
+en.pl_ready = "ready"
+cs.pl_on_turn = "na tahu (1-%d)"
+en.pl_on_turn = "on turn (1-%d)"
+cs.pl_rolled = "hodil %d"
+en.pl_rolled = "rolled %d"
+cs.pl_waiting = "čeká"
+en.pl_waiting = "waiting"
+cs.pl_rolling = "hází 1-%d"
+en.pl_rolling = "rolling 1-%d"
+cs.pl_host = "hostitel"
+en.pl_host = "host"
+
+cs.debts_only_mine = "Jen moje"
+en.debts_only_mine = "Only mine"
+cs.debts_show_paid = "Zobrazit zaplacené"
+en.debts_show_paid = "Show paid"
+cs.btn_sync = "Synchronizovat"
+en.btn_sync = "Sync"
+cs.debts_owe = "Dlužíš"
+en.debts_owe = "You owe"
+cs.debts_owed = "Dluží ti"
+en.debts_owed = "Owed to you"
+cs.debts_empty = "Žádné dluhy."
+en.debts_empty = "No debts."
+cs.debt_paid_tag = "zaplaceno"
+en.debt_paid_tag = "paid"
+cs.btn_paid = "Zaplaceno"
+en.btn_paid = "Paid"
+cs.confirm_paid = "Označit dluh %s od %s jako zaplacený?"
+en.confirm_paid = "Mark the debt of %s from %s as paid?"
+cs.debt_unconfirmed_tag = "NEOVĚŘENO"
+en.debt_unconfirmed_tag = "UNVERIFIED"
+cs.btn_review = "Ověřit"
+en.btn_review = "Review"
+cs.btn_yes = "Ano"
+en.btn_yes = "Yes"
+cs.btn_no = "Ne"
+en.btn_no = "No"
+cs.btn_back = "Zpět"
+en.btn_back = "Back"
+cs.btn_confirm = "Potvrdit"
+en.btn_confirm = "Confirm"
+cs.btn_reject = "Odmítnout"
+en.btn_reject = "Reject"
+cs.review_debt = "Neověřený dluh: %s dluží %s hráči %s.\nAddon tuhle hru neviděl. Potvrď ho jen, pokud opravdu proběhla."
+en.review_debt = "Unverified debt: %s owes %s to %s.\nThe addon did not see this game. Confirm it only if it really happened."
+
+cs.hist_winner = "vítěz"
+en.hist_winner = "winner"
+cs.hist_pays = "platí"
+en.hist_pays = "pays"
+cs.hist_empty = "Zatím žádné hry."
+en.hist_empty = "No games yet."
+cs.btn_log = "Log"
+en.btn_log = "Log"
+
+cs.log_hint = "Ctrl+A označí vše, Ctrl+C zkopíruje"
+en.log_hint = "Ctrl+A selects all, Ctrl+C copies"
+cs.log_title_running = "SUCDR - log rozehrané hry"
+en.log_title_running = "SUCDR - current game log"
+cs.log_title_last = "SUCDR - log poslední hry"
+en.log_title_last = "SUCDR - last game log"
+cs.log_title_game = "SUCDR - log hry"
+en.log_title_game = "SUCDR - game log"
+cs.log_none = "Žádný log zatím není."
+en.log_none = "No log yet."
+cs.log_unavailable = "(log není k dispozici - hru jsi nehostoval ty)"
+en.log_unavailable = "(log not available - you did not host this game)"
+cs.log_header = "SUCDR log hry %s"
+en.log_header = "SUCDR game log %s"
+cs.log_sub = "%s | %s | sázka %s | vítěz %s%s"
+en.log_sub = "%s | %s | bet %s | winner %s%s"
+
+cs.set_language = "Jazyk / Language"
+en.set_language = "Language / Jazyk"
+cs.set_options = "Možnosti"
+en.set_options = "Options"
+cs.set_announce = "Oznamovat průběh hry do party/raid chatu"
+en.set_announce = "Announce the game in party/raid chat"
+cs.set_announce_hint = "Platí pro hry, které zakládáš. Oznámení jsou v tvém jazyce."
+en.set_announce_hint = "Applies to games you host. Announcements use your language."
+cs.set_sound = "Zvuk, když jsem na řadě nebo vznikne lobby"
+en.set_sound = "Play a sound on my turn and when a lobby opens"
+cs.set_autoopen = "Otevřít okno, když se přidám do hry"
+en.set_autoopen = "Open the window when I join a game"
+cs.set_minimap = "Ikona u minimapy"
+en.set_minimap = "Minimap icon"
+cs.mm_left = "Levý klik: otevřít / zavřít okno"
+en.mm_left = "Left-click: open / close the window"
+cs.mm_right = "Pravý klik: nastavení"
+en.mm_right = "Right-click: settings"
+cs.mm_drag = "Tažením ikonu posuneš"
+en.mm_drag = "Drag to move the icon"
+cs.set_remind = "Připomínat dluhy po přihlášení a když je dlužník/věřitel ve skupině"
+en.set_remind = "Remind me of debts after login and when the other player is in my group"
+cs.set_font = "Moderní font (Inter)"
+en.set_font = "Modern font (Inter)"
+cs.btn_remind = "Ukázat moje dluhy"
+en.btn_remind = "Show my debts"
+cs.set_tools = "Nástroje"
+en.set_tools = "Tools"
+cs.btn_testmode_on = "Zapnout testovací režim"
+en.btn_testmode_on = "Enable test mode"
+cs.btn_testmode_off = "Vypnout testovací režim"
+en.btn_testmode_off = "Disable test mode"
+cs.btn_selftest = "Samotest komunikace"
+en.btn_selftest = "Communication self-test"
+cs.btn_export = "Exportovat pro Discord"
+en.btn_export = "Export for Discord"
+cs.export_confirm = "Export pro Discord se zapíše při reloadu.\nUdělat teď /reload?"
+en.export_confirm = "The Discord export is written on reload.\nReload the UI now?"
+cs.export_busy = "Během rozehrané hry nejde exportovat (reload by hru ukončil). Zkus to po hře."
+en.export_busy = "Can't export during a game (a reload would end it). Try again after the game."
+cs.btn_clear_test = "Smazat testovací hry"
+en.btn_clear_test = "Delete test games"
+cs.set_commands = "Příkazy: /sucdr, /sucdr join, /sucdr roll, /sucdr stats, /sucdr version, /sucdr help"
+en.set_commands = "Commands: /sucdr, /sucdr join, /sucdr roll, /sucdr stats, /sucdr version, /sucdr help"
+cs.set_version = "Verze %s"
+en.set_version = "Version %s"
+cs.lang_changed = "Jazyk nastaven: čeština."
+en.lang_changed = "Language set to English."
+
+cs.test_finish_first = "Nejdřív dokonči nebo zruš rozehranou hru."
+en.test_finish_first = "Finish or cancel the current game first."
+cs.test_on = "Testovací režim ZAPNUT: Založit test -> Přidat bota -> Spustit. Nic se neposílá ostatním."
+en.test_on = "Test mode ON: Create test -> Add bot -> Start. Nothing is sent to other players."
+cs.test_off = "Testovací režim vypnut."
+en.test_off = "Test mode off."
+
+cs.help = {
+    "/sucdr - otevře okno",
+    "/sucdr join - přidá tě do lobby ve skupině a otevře okno",
+    "/sucdr roll - hodí za tebe správný rozsah",
+    "/sucdr sync - synchronizuje dluhy s guildou",
+    "/sucdr remind - vypíše moje otevřené dluhy",
+    "/sucdr stats - statistiky a žebříček guildy",
+    "/sucdr log - log poslední (nebo rozehrané) hry ke zkopírování",
+    "/sucdr test - zapne/vypne testovací režim s boty",
+    "/sucdr test clear - smaže testovací hry a dluhy",
+    "/sucdr selftest - ověří komunikaci addonu (pošle si zprávy sám sobě)",
+    "/sucdr lang cs|en - přepne jazyk",
+    "/sucdr minimap - vrátí ikonu u minimapy na výchozí místo",
+    "/sucdr version - moje verze a verze ostatních hráčů",
+    "/sucdr export - zapíše export pro Discord bota (udělá /reload)",
+    "/sucdr collect - (jen guild master) sebere od online členů guildy hry za posledních 30 dní",
+}
+en.help = {
+    "/sucdr - opens the window",
+    "/sucdr join - joins the lobby in your group and opens the window",
+    "/sucdr roll - rolls the correct range for you",
+    "/sucdr sync - syncs debts with the guild",
+    "/sucdr remind - lists my open debts",
+    "/sucdr stats - stats and the guild leaderboard",
+    "/sucdr log - log of the last (or current) game, ready to copy",
+    "/sucdr test - toggles test mode with bots",
+    "/sucdr test clear - deletes test games and their debts",
+    "/sucdr selftest - checks the addon's communication (sends messages to yourself)",
+    "/sucdr lang cs|en - switches the language",
+    "/sucdr minimap - resets the minimap icon to its default place",
+    "/sucdr version - my version and the versions of other players",
+    "/sucdr export - writes the Discord bot export (reloads the UI)",
+    "/sucdr collect - (guild master only) collects the last 30 days of games from online guild members",
+}
+
+---------------------------------------------------------------------------
+-- Sběr her (guild master) a log od hostitele
+---------------------------------------------------------------------------
+cs.btn_collect = "Sebrat hry z guildy"
+en.btn_collect = "Collect guild games"
+cs.collect_tip = "Požádá všechny online členy guildy s addonem o hry a stav dluhů za posledních 30 dní."
+en.collect_tip = "Asks all online guild members with the addon for their games and debt status from the last 30 days."
+cs.collect_not_gm = "Hry z guildy může sbírat jen guild master."
+en.collect_not_gm = "Only the guild master can collect guild games."
+cs.collect_wait = "Sběr už běží, zkus to znovu za minutu."
+en.collect_wait = "Collecting is already running, try again in a minute."
+cs.collect_sent = "Žádost o hry za posledních %d dní odeslána guildě. Odpovědi dobíhají pár minut."
+en.collect_sent = "Asked the guild for games from the last %d days. Replies arrive over a few minutes."
+cs.collect_done = "Sběr her: zatím %d nových her od %d hráčů. Další můžou ještě chvíli dobíhat."
+en.collect_done = "Collecting games: %d new games from %d players so far. More may still arrive."
+cs.collected_tag = "SEBRÁNO"
+en.collected_tag = "COLLECTED"
+cs.btn_log_request = "Vyžádat log"
+en.btn_log_request = "Request log"
+cs.log_requested = "Žádost o log odeslána hostiteli %s (musí být online)."
+en.log_requested = "Log requested from the host %s (they must be online)."
+cs.log_received = "Log hry od %s přijat."
+en.log_received = "Game log received from %s."
+
+---------------------------------------------------------------------------
+-- Verze
+---------------------------------------------------------------------------
+cs.ver_newer = "|cffffd100Je venku nová verze SUCDR %s|r (má ji %s, ty máš %s). "
+    .. "Aktualizuj prosím, starší verze spolu nehrají spolehlivě."
+en.ver_newer = "|cffffd100A new SUCDR version %s is out|r (%s has it, you have %s). "
+    .. "Please update, older versions don't play together reliably."
+cs.ver_older = "%s má starou verzi SUCDR %s. Ať si prosím addon aktualizuje."
+en.ver_older = "%s has an old SUCDR version %s. Ask them to update the addon."
+cs.ver_mine = "Moje verze SUCDR: %s"
+en.ver_mine = "My SUCDR version: %s"
+cs.ver_none = "Od ostatních zatím žádná verze nedorazila (verze 0.7.x ji ještě neposílají)."
+en.ver_none = "No versions from other players yet (versions 0.7.x don't send it)."
+
+---------------------------------------------------------------------------
+-- Samotest
+---------------------------------------------------------------------------
+cs.self_busy = "Samotest už běží."
+en.self_busy = "The self-test is already running."
+cs.self_checking = "Samotest: kontroluji převody a čtení hodů..."
+en.self_checking = "Self-test: checking serialization and roll parsing..."
+cs.self_sending = "Samotest: posílám si %d částí zpráv, potrvá to nejvýš %d s..."
+en.self_sending = "Self-test: sending %d message parts to myself, this takes up to %d s..."
+cs.self_ok = "|cff40ff40Samotest OK|r: %d kontrol prošlo."
+en.self_ok = "|cff40ff40Self-test OK|r: %d checks passed."
+cs.self_fail = "|cffff4040Samotest: %d chyb|r, %d kontrol prošlo. Pošli prosím výpis z chatu autorovi addonu."
+en.self_fail = "|cffff4040Self-test: %d errors|r, %d checks passed. Please send the chat output to the addon author."
+cs.self_error = "CHYBA"
+en.self_error = "ERROR"
+
+---------------------------------------------------------------------------
+function ns.Lang()
+    local lang = ns.db and ns.db.lang
+    return L[lang] and lang or "cs"
+end
+
+function ns.T(key, ...)
+    local s = L[ns.Lang()][key]
+    if s == nil then s = L.cs[key] end
+    if s == nil then return key end
+    if select("#", ...) > 0 then return s:format(...) end
+    return s
+end
+
+function ns.SetLang(lang)
+    if not L[lang] then return end
+    ns.db.lang = lang
+    ns.Print(ns.T("lang_changed"))
+    if ns.UI and ns.UI.ApplyTexts then ns.UI.ApplyTexts() end
+    ns.RefreshUI()
+end
