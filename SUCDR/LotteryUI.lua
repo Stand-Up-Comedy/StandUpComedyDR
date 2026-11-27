@@ -60,6 +60,11 @@ local function build(p)
         confirm(T("lot_confirm_create", ns.Gold(o.price), o.limit), function() Lot.Create(o) end)
     end, true), "lot_create")
     lp.create:SetPoint("TOPLEFT", 0, -252)
+    lp.back = K.Loc(K.Btn(lp.form, "", 120, 28, function()
+        lp.showForm = false
+        ns.RefreshUI()
+    end), "btn_back")
+    lp.back:SetPoint("LEFT", lp.create, "RIGHT", 6, 0)
 
     -- ovládání běžící loterie
     local W, GAP = 150, 6
@@ -133,6 +138,7 @@ local function refresh()
     lp.list.frame:SetShown(not form)
 
     if form then
+        lp.back:SetShown(own and true or false)
         if not lp.formFilled then
             lp.formFilled = true
             local d = ns.db.lotteryDefaults or Lot.DEFAULTS

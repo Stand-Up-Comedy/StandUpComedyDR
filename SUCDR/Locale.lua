@@ -277,8 +277,6 @@ en.stats_note = "From the games your addon has seen (in your group or via the gu
 
 cs.bet_label = "Sázka (g)"
 en.bet_label = "Bet (g)"
-cs.start_label = "Start"
-en.start_label = "Start"
 cs.limit_label = "Limit (s)"
 en.limit_label = "Limit (s)"
 cs.btn_create = "Založit hru"

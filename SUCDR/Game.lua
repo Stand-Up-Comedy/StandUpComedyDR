@@ -396,6 +396,7 @@ function G.RemovePlayer(name)
     if not isHost() or s.phase ~= "lobby" then return end
     local _, idx = G.FindPlayer(name)
     if not idx then return end
+    if s.don then return G.Cancel() end -- odveta bez jednoho z dvojice nemá smysl
     table.remove(s.players, idx)
     announce(T("player_left", ns.Display(name), #s.players))
     push()

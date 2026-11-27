@@ -223,6 +223,7 @@ ns.OnComm("GAMEREC", function(sender, rest, channel)
         -- hru už mám (např. jako neověřenou z guild zprávy) - potvrzuje ji hostitel nebo hráč
         if old.unverified and not old.test then
             old.unverified = nil
+            L.rev = L.rev + 1
             old.collected = old.collected or sender
             collecting.games = collecting.games + 1
         end

@@ -13,6 +13,9 @@ ns.Challenge = C
 C.ANSWER_TIME = 60 -- jak dlouho čekám na odpověď
 C.GROUP_TIME = 120 -- jak dlouho po přijetí čekám, až bude vyzvaný ve skupině
 
+C.DECLINE_PAUSE = 60 -- po odmítnutí od stejného hráče výzvu chvíli neukazuji
+
+local declined = {} -- [jméno] = čas, kdy jsem ho odmítl
 local outgoing -- moje výzva: { id, target, bet, t, accepted }
 local incoming -- výzva pro mě: { id, from, bet, t }
 
@@ -27,6 +30,13 @@ end
 
 -- Pro test a UI: aktuální odeslaná výzva
 function C.Outgoing() return outgoing end
+
+-- Odpověď přijde se jménem přesně jako ve hře, já ho mohl napsat jinou velikostí písmen
+local function isTarget(o, sender)
+    if o.target:lower() ~= sender:lower() then return false end
+    o.target = sender
+    return true
+end
 
 function C.Send(name)
     name = ns.Normalize(name)
@@ -109,6 +119,7 @@ local function answer(ok)
             ns.Print(T("chal_accepted_invite", ns.Display(i.from)))
         end
     else
+        declined[i.from] = GetTime()
         ns.Send("CHALNO", i.id .. ";no", "WHISPER", i.from)
     end
 end
@@ -118,6 +129,10 @@ ns.OnComm("CHAL", function(sender, rest)
     local id, bet = strsplit(";", rest or "")
     bet = tonumber(bet)
     if not id or id == "" or not bet or bet < 2 or bet > ns.Game.MAX_ROLL or bet ~= math.floor(bet) then return end
+    if declined[sender] and GetTime() - declined[sender] < C.DECLINE_PAUSE then
+        ns.Send("CHALNO", id .. ";no", "WHISPER", sender)
+        return
+    end
     if busy() or (incoming and GetTime() - incoming.t < C.ANSWER_TIME) then
         ns.Send("CHALNO", id .. ";busy", "WHISPER", sender)
         return
@@ -139,7 +154,7 @@ end)
 
 ns.OnComm("CHALOK", function(sender, id)
     local o = outgoing
-    if not o or o.id ~= id or o.target ~= sender or o.accepted then return end
+    if not o or o.id ~= id or o.accepted or not isTarget(o, sender) then return end
     o.accepted = GetTime()
     ns.Print(T("chal_accepted", ns.Display(sender)))
     C.TryStart()
@@ -149,7 +164,7 @@ end)
 ns.OnComm("CHALNO", function(sender, rest)
     local id, why = strsplit(";", rest or "")
     local o = outgoing
-    if not o or o.id ~= id or o.target ~= sender then return end
+    if not o or o.id ~= id or not isTarget(o, sender) then return end
     clearOutgoing()
     ns.Print(T(why == "busy" and "chal_busy" or "chal_declined", ns.Display(sender)))
 end)

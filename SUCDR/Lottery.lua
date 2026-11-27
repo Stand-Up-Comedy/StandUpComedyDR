@@ -241,8 +241,11 @@ function Lot.ResolvePending(index, asTickets)
     if asTickets then
         Lot.Sell(p.name, p.gold)
     else
-        log(("Platba %s %d zapsána jako splacení dluhu"):format(p.name, p.gold))
-        ns.Ledger.ApplyPayment(p.name, ns.Me(), p.gold)
+        local debt = math.min(p.gold, ns.Ledger.OwedBy(p.name))
+        log(("Platba %s %d, z toho na splacení dluhu %d"):format(p.name, p.gold, debt))
+        ns.Ledger.ApplyPayment(p.name, ns.Me(), debt)
+        -- co je navíc nad dluh, jde na losy (zbytek k vrácení)
+        if p.gold > debt then Lot.Sell(p.name, p.gold - debt) end
         ns.RefreshUI()
     end
 end
@@ -480,6 +483,12 @@ ns.OnComm("LOTQ", function(sender)
     if l and l.host == ns.Me() and isGM() then sendTo(sender) end
 end)
 
+-- Bez čerstvého seznamu členů guildy nejde poznat guild master ani člen guildy
+local function refreshRoster()
+    if IsInGuild() and C_GuildInfo and C_GuildInfo.GuildRoster then C_GuildInfo.GuildRoster() end
+end
+
 ns.On("PLAYER_LOGIN", function()
+    C_Timer.After(20, refreshRoster)
     C_Timer.After(30, function() ns.SendGuild("LOTQ", "") end)
 end)
