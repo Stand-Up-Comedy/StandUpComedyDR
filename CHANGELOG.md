@@ -2,6 +2,10 @@
 
 Poznámky k verzím SUCDR. Při vydání nové verze sem přidej sekci `## x.y.z` nahoru – text se použije jako popis releasu na GitHubu i jako changelog na CurseForge.
 
+## 0.12.1
+
+V Nastavení jde nově vypnout výzvu v pravém kliku na hráče (tituly v tooltipu šly vypnout už dřív). V záhlaví okna přibyla ikonka **i** s nápovědou. Po aktualizaci stačí /reload.
+
 ## 0.12.0
 
 **Nový režim Rozdíl**: všichni hodí jednou 1..sázka a nejnižší hod platí nejvyššímu rozdíl obou hodů. Při shodě nahoře nebo dole se hází znovu, když hodí všichni stejně, je remíza a nikdo nic neplatí. Kdo nehodí včas, počítá se mu 1.

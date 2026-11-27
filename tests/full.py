@@ -242,5 +242,21 @@ b.run("__asked = 0; ns.db.joinPopup = false; ns.UI.Confirm = function() __asked 
 a.run("G.Create(500)"); w.step(5)
 check(b.run("return __asked") == 0 and b.run("return G.state ~= nil"), "Vypnuté okno se neukáže, lobby ale hráč vidí")
 
+w = Net(["Anna", "Bob"])
+a = w.p("Anna")
+n = a.run("""
+    local handlers = {}
+    Menu = { ModifyMenu = function(tag, fn) handlers[#handlers+1] = fn end }
+    __fire('ADDON_LOADED', 'SUCDR')
+    local count = 0
+    local root = { CreateDivider = function() end, CreateButton = function() count = count + 1 end }
+    handlers[1](nil, root, { name = 'Bob', server = 'Drakthul' })
+    local on = count
+    ns.db.menuChallenge = false
+    handlers[1](nil, root, { name = 'Bob', server = 'Drakthul' })
+    return on .. '/' .. count
+""")
+check(n == "1/1", "Vypnutá výzva se do pravého kliku nepřidá", n)
+
 print()
 print("CHYBY celek:", FAILS or "žádné")
