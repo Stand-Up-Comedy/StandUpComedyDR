@@ -41,6 +41,15 @@ function S.IsGuildMasterName(name)
     return false
 end
 
+function S.IsGuildMember(name)
+    if not name or not IsInGuild() then return false end
+    for i = 1, GetNumGuildMembers() do
+        local n = GetGuildRosterInfo(i)
+        if n and ns.Normalize(n) == name then return true end
+    end
+    return false
+end
+
 ---------------------------------------------------------------------------
 -- Dorovnání zaplacených dluhů (OPEN -> PAID)
 ---------------------------------------------------------------------------

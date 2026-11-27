@@ -2,6 +2,12 @@
 
 Poznámky k verzím SUCDR. Při vydání nové verze sem přidej sekci `## x.y.z` nahoru – text se použije jako popis releasu na GitHubu i jako changelog na CurseForge.
 
+## 0.12.0
+
+**Guildovní loterie** (záložka Loterie, `/sucdr loterie`): guild master ji vyhlásí, losy se platí předem tradem a addon sám přidělí čísla. Hrát může kdokoli (jde omezit jen na guildu). Čím víc losů se prodá, tím větší výhra. Na konci se zveřejní seznam losů a guild master vylosuje výherce veřejným /roll. Hráči vidí aktuální výhru a svoje losy.
+
+Přibyly nové soubory, po aktualizaci je potřeba hru úplně restartovat.
+
 ## 0.11.0
 
 **Výzva na duel**: pravým klikem na hráče (v cíli, ve skupině, v guildě nebo v seznamu přátel) vyber „SUCDR: vyzvat na death roll“, nebo napiš `/sucdr vyzva Jmeno`. Hraje se o sázku z okna. Vyzvanému vyskočí okno Přijmout / Odmítnout. Po přijetí tě addon pozve do skupiny (pokud v ní ještě nejste spolu) a duel se sám spustí, žádné zakládání ani join.

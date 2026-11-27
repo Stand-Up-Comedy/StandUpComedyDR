@@ -248,6 +248,17 @@ function L.OwedTo(creditor)
     return sum
 end
 
+-- Kolik mi hráč dluží (potvrzené nezaplacené dluhy)
+function L.OwedBy(debtor)
+    local me, sum = ns.Me(), 0
+    for _, d in pairs(db().debts) do
+        if not d.paid and not d.test and not d.unconfirmed and d.from == debtor and d.to == me then
+            sum = sum + L.Remaining(d)
+        end
+    end
+    return sum
+end
+
 local pendingPay
 function L.Pay(creditor)
     local T = ns.T
@@ -287,8 +298,11 @@ ns.On("TRADE_ACCEPT_UPDATE", updateTrade)
 ns.On("UI_INFO_MESSAGE", function(_, msg)
     if ns.IsSecret(msg) or msg ~= ERR_TRADE_COMPLETE or not trade.partner then return end
     local me = ns.Me()
-    L.ApplyPayment(trade.partner, me, math.floor((trade.target or 0) / 10000))
-    L.ApplyPayment(me, trade.partner, math.floor((trade.player or 0) / 10000))
+    local got, gave = math.floor((trade.target or 0) / 10000), math.floor((trade.player or 0) / 10000)
+    -- loterie si vezme platby za losy, vrácené přeplatky a výplatu výhry
+    if ns.Lottery then got, gave = ns.Lottery.OnTrade(trade.partner, got, gave) end
+    L.ApplyPayment(trade.partner, me, got)
+    L.ApplyPayment(me, trade.partner, gave)
     trade = {}
 end)
 

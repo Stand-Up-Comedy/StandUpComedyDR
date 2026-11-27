@@ -3,7 +3,7 @@
 ## Notes: Stand Up Comedy death roll (SUCDR) - death roll o goldy ve skupině, s evidencí dluhů
 ## Notes-enUS: Stand Up Comedy death roll (SUCDR) - gold death roll for groups, with debt tracking
 ## Author: Stand Up Comedy
-## Version: 0.11.0
+## Version: 0.12.0
 ## SavedVariables: SUCDR_DB, SUCDR_Export
 ## IconTexture: Interface\AddOns\SUCDR\Media\icon
 ## AddonCompartmentFunc: SUCDR_OnAddonCompartmentClick
@@ -16,8 +16,10 @@ Ledger.lua
 Sync.lua
 Game.lua
 Challenge.lua
+Lottery.lua
 Export.lua
 UI.lua
+LotteryUI.lua
 Minimap.lua
 Tooltip.lua
 SelfTest.lua

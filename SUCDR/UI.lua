@@ -1273,6 +1273,9 @@ end
 local refreshers = { game = RefreshGame, debts = RefreshDebts, history = RefreshHistory, stats = RefreshStats,
     settings = RefreshSettings }
 
+-- stavební prvky pro další soubory (LotteryUI.lua)
+UI.kit = { Label = Label, Btn = Btn, Edit = Edit, Check = Check, Box = Box, CreateList = CreateList, Loc = Loc }
+
 local function SelectTab(key)
     current = key
     for k, panel in pairs(panels) do panel:SetShown(k == key) end
@@ -1292,11 +1295,11 @@ local function Build()
     f.subtitle:SetText(("v%s  -  Stand up Comedy death roll"):format(version()))
 
     local tabDefs = { { "game", "tab_game" }, { "debts", "tab_debts" }, { "history", "tab_history" },
-        { "stats", "tab_stats" }, { "settings", "tab_settings" } }
+        { "lottery", "tab_lottery" }, { "stats", "tab_stats" }, { "settings", "tab_settings" } }
     local prev
     for _, def in ipairs(tabDefs) do
         local key = def[1]
-        local tab = Loc(Tab(f, 92, function() SelectTab(key) end), def[2])
+        local tab = Loc(Tab(f, 76, function() SelectTab(key) end), def[2])
         if prev then tab:SetPoint("LEFT", prev, "RIGHT", 2, 0) else tab:SetPoint("TOPLEFT", 10, -34) end
         tabs[key] = tab
         prev = tab
@@ -1317,6 +1320,8 @@ local function Build()
     BuildHistory(panels.history)
     BuildStats(panels.stats)
     BuildSettings(panels.settings)
+    UI.lottery.build(panels.lottery)
+    refreshers.lottery = UI.lottery.refresh
     UpdateCheckHitRects()
 
     local acc = 0
@@ -1402,6 +1407,8 @@ SlashCmdList.SUCDR = function(input)
         ns.Ledger.RequestSync()
     elseif cmd == "selftest" then
         ns.SelfTest.Run()
+    elseif cmd == "loterie" or cmd == "lottery" then
+        UI.ShowTab("lottery")
     elseif cmd == "stats" then
         UI.ShowTab("stats")
     elseif cmd == "remind" then
