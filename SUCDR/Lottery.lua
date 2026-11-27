@@ -202,6 +202,11 @@ local function owe(name, gold)
     ns.Print(T("lot_give_back", ns.Display(name), ns.Gold(l.back[name])))
 end
 
+-- Kolik losů by hráč za částku dostal (s ohledem na limit)
+local function ticketsFor(l, name, gold)
+    return math.max(0, math.min(math.floor(gold / l.price), l.limit - Lot.CountOf(name), MAX_TICKETS - l.count))
+end
+
 -- Přijatá platba za losy
 function Lot.Sell(name, gold)
     local l = L()
@@ -214,7 +219,7 @@ function Lot.Sell(name, gold)
     elseif not l.guests and not ns.Sync.IsGuildMember(name) then
         ns.Print(T("lot_no_guests", ns.Display(name)))
     else
-        n = math.max(0, math.min(math.floor(gold / l.price), l.limit - Lot.CountOf(name), MAX_TICKETS - l.count))
+        n = ticketsFor(l, name, gold)
     end
     if n > 0 then
         local from, to = l.count + 1, l.count + n
@@ -232,37 +237,55 @@ function Lot.Sell(name, gold)
     return n
 end
 
--- Platba, u které není jasné, jestli jde o losy, nebo o splacení dluhu
-function Lot.ResolvePending(index, asTickets)
+-- Rozhodnutí o přijaté platbě: "tickets" (losy), "debt" (splacení dluhu, zbytek na losy),
+-- "none" (s loterií nesouvisí)
+function Lot.ResolvePending(index, what)
     local l = L()
     local p = l and l.pending[index]
     if not p then return end
     table.remove(l.pending, index)
-    if asTickets then
+    if what == "tickets" then
         Lot.Sell(p.name, p.gold)
-    else
+    elseif what == "debt" then
         local debt = math.min(p.gold, ns.Ledger.OwedBy(p.name))
         log(("Platba %s %d, z toho na splacení dluhu %d"):format(p.name, p.gold, debt))
         ns.Ledger.ApplyPayment(p.name, ns.Me(), debt)
         -- co je navíc nad dluh, jde na losy (zbytek k vrácení)
         if p.gold > debt then Lot.Sell(p.name, p.gold - debt) end
-        ns.RefreshUI()
+    else
+        log(("Platba %s %d nepatří do loterie"):format(p.name, p.gold))
+        ns.Ledger.ApplyPayment(p.name, ns.Me(), p.gold)
     end
+    ns.RefreshUI()
 end
 
+-- Než se cokoli zapíše, guild master platbu potvrdí
 function Lot.AskPending(index)
     local l = L()
     local p = l and l.pending[index]
     if not p or not ns.UI or not ns.UI.Confirm then return end
-    local function resolve(asTickets)
+    local function resolve(what)
         -- pořadí se mohlo změnit, najdu platbu znovu
         for i, q in ipairs(l.pending) do
-            if q == p and L() == l then return Lot.ResolvePending(i, asTickets) end
+            if q == p and L() == l then return Lot.ResolvePending(i, what) end
         end
     end
-    ns.UI.Confirm(T("lot_ask_pending", ns.Display(p.name), ns.Gold(p.gold)), {
-        { T("lot_as_tickets"), function() resolve(true) end, true },
-        { T("lot_as_debt"), function() resolve(false) end },
+    local name, gold = ns.Display(p.name), ns.Gold(p.gold)
+    if ns.Ledger.OwedBy(p.name) > 0 then
+        ns.UI.Confirm(T("lot_ask_pending", name, gold), {
+            { T("lot_as_tickets"), function() resolve("tickets") end, true },
+            { T("lot_as_debt"), function() resolve("debt") end },
+            { T("lot_later") },
+        })
+        return
+    end
+    local n = ticketsFor(l, p.name, p.gold)
+    local back = p.gold - n * l.price
+    local text = T("lot_ask_sell", name, gold, n)
+    if back > 0 then text = text .. " " .. T("lot_ask_back", ns.Gold(back)) end
+    ns.UI.Confirm(text, {
+        { T("lot_as_tickets"), function() resolve("tickets") end, true },
+        { T("lot_not_lottery"), function() resolve("none") end },
         { T("lot_later") },
     })
 end
@@ -296,13 +319,10 @@ function Lot.OnTrade(partner, got, gave)
 
     if got > 0 and isGM() then
         if l.status == "open" then
-            if ns.Ledger.OwedBy(partner) > 0 then
+            if got >= l.price or ns.Ledger.OwedBy(partner) > 0 then
                 l.pending[#l.pending + 1] = { name = partner, gold = got, t = time() }
-                log(("Nerozhodnutá platba (losy / dluh): %s %d"):format(partner, got))
+                log(("Platba čeká na potvrzení: %s %d"):format(partner, got))
                 Lot.AskPending(#l.pending)
-                got = 0
-            elseif got >= l.price then
-                Lot.Sell(partner, got)
                 got = 0
             else
                 ns.Print(T("lot_too_little", ns.Display(partner), ns.Gold(got)))

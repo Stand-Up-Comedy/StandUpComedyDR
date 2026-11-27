@@ -37,12 +37,16 @@ def world():
     return w
 
 
-def trade(w, a, b, a_gives=0, b_gives=0):
+def trade(w, a, b, a_gives=0, b_gives=0, confirm=True):
     """Hráči a a b dokončí trade."""
     for me, other, gave, got in ((a, b, a_gives, b_gives), (b, a, b_gives, a_gives)):
         w.p(me).run(f"__npc = '{other}'; __trade = {{ {got}, {gave} }}; __fire('TRADE_SHOW'); "
                     "__fire('TRADE_MONEY_CHANGED'); __fire('UI_INFO_MESSAGE', 0, ERR_TRADE_COMPLETE)")
     w.pump()
+    if confirm:
+        gm = w.p("Anna")
+        gm.run("if __confirm and __confirm[2][1] == ns.T('lot_not_lottery') then local c = __confirm; __confirm = nil; c[1][2]() end")
+        w.pump()
 
 
 OPTS = "{ price = 10000, limit = 20, step = 500000, bonus = 25000, bonusMax = 100000, share = 10, guests = %s }"
@@ -189,6 +193,27 @@ w = world()
 w.p("Bob").run("ns.Lottery.paidTo['Cyril-Drakthul'] = GetTime(); "
                "__deliver('LOT', 'Cyril-Drakthul', 'X;open;999;1;1;1;;')")
 check(w.p("Bob").run("return ns.db.lotterySeen") is None, "Člen guildy, kterému jsem platil, loterii nepodstrčí")
+
+# --- každá platba se potvrzuje ------------------------------------------------------
+w = world()
+create(w)
+trade(w, "Bob", "Anna", a_gives=25000, confirm=False)
+a = w.p("Anna")
+check(lot(w, "l.count") == 0 and lot(w, "#l.pending") == 1, "Bez potvrzení se nic nezapíše")
+check(a.run("return __confirm[1][1] .. '|' .. __confirm[2][1]") == "Losy|Není to loterie", "Dialog nabízí Losy / Není to loterie")
+check(w.p("Bob").run("return ns.db.lotterySeen.mine") is None, "Kupující zatím losy nevidí")
+a.run("__confirm[1][2]()"); w.pump()
+check(lot(w, "l.count") == 2 and lot(w, f"l.back['Bob{R}']") == 5000, "Po potvrzení 2 losy a 5000 k vrácení")
+a.run("__confirm[1][2]()")
+check(lot(w, "l.count") == 2, "Dvojklik nezapíše platbu dvakrát")
+trade(w, "Cyril", "Anna", a_gives=50000, confirm=False)
+a.run("__confirm[2][2]()"); w.pump()
+check(lot(w, "l.count") == 2 and lot(w, "#l.pending") == 0 and lot(w, f"l.back['Cyril{R}']") is None,
+      "Není to loterie: nic se nezapíše")
+trade(w, "Cyril", "Anna", a_gives=10000, confirm=False)
+check(not a.run("return ns.Lottery.Close()"), "S čekající platbou nejde uzavřít prodej")
+a.run("ns.Lottery.Cancel()")
+check(lot(w, f"l.back['Cyril{R}']") == 10000, "Zrušení: čekající platba jde k vrácení")
 
 print()
 print("CHYBY loterie:", FAILS or "žádné")
