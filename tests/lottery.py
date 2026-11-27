@@ -169,5 +169,26 @@ w = world()
 w.p("Bob").run("__deliver('LOT', 'Cyril-Drakthul', 'X;open;999;1;1;1;;')")
 check(w.p("Bob").run("return ns.db.lotterySeen") is None, "Stav loterie od ne-GM se ignoruje")
 
+# --- jen guild master -----------------------------------------------------------
+w = world()
+create(w)
+b = w.p("Bob")
+trade(w, "Bob", "Anna", a_gives=10000)
+trade(w, "Cyril", "Anna", a_gives=10000)
+# Anna přestane být guild master uprostřed loterie
+for p in w.players.values():
+    p.run('__guild = { "Bob", "Anna", "Cyril" }')
+check(not w.p("Anna").run("return ns.Lottery.Close()"), "Bývalý GM neuzavře prodej")
+w.p("Anna").run("ns.Lottery.Cancel()")
+check(lot(w, "l.status") == "open", "Bývalý GM loterii nezruší")
+w.p("Anna").run("__chat = {}; ns.Lottery.PublishList()")
+check(w.p("Anna").run("return #__chat") == 0, "Bývalý GM nezveřejní seznam")
+trade(w, "Cyril", "Anna", a_gives=10000)
+check(lot(w, "l.count") == 2, "Bývalý GM neprodá další losy")
+w = world()
+w.p("Bob").run("ns.Lottery.paidTo['Cyril-Drakthul'] = GetTime(); "
+               "__deliver('LOT', 'Cyril-Drakthul', 'X;open;999;1;1;1;;')")
+check(w.p("Bob").run("return ns.db.lotterySeen") is None, "Člen guildy, kterému jsem platil, loterii nepodstrčí")
+
 print()
 print("CHYBY loterie:", FAILS or "žádné")

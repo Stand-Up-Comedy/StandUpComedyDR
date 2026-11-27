@@ -207,7 +207,9 @@ function Lot.Sell(name, gold)
     local l = L()
     log(("Platba: %s %d"):format(name, gold))
     local n = 0
-    if l.status ~= "open" then
+    if not isGM() then
+        ns.Print(T("lot_gm_only"))
+    elseif l.status ~= "open" then
         ns.Print(T("lot_closed_payment", ns.Display(name)))
     elseif not l.guests and not ns.Sync.IsGuildMember(name) then
         ns.Print(T("lot_no_guests", ns.Display(name)))
@@ -289,7 +291,7 @@ function Lot.OnTrade(partner, got, gave)
         end
     end
 
-    if got > 0 then
+    if got > 0 and isGM() then
         if l.status == "open" then
             if ns.Ledger.OwedBy(partner) > 0 then
                 l.pending[#l.pending + 1] = { name = partner, gold = got, t = time() }
@@ -313,7 +315,7 @@ end
 -- Zveřejní seznam losů (guildovní chat + skupina)
 function Lot.PublishList()
     local l = L()
-    if not l or l.count == 0 then return end
+    if not l or l.count == 0 or not isGM() then return end
     local t = {}
     for _, name in ipairs(Lot.Buyers()) do
         t[#t + 1] = ns.Display(name) .. " " .. Lot.Ranges(name):gsub(",", ", ")
@@ -438,6 +440,9 @@ local TRADE_TRUST = 600
 
 local function trusted(sender)
     if ns.Sync.IsGuildMasterName(sender) then return true end
+    -- kdokoli jiný z mojí guildy loterii pořádat nesmí
+    if ns.Sync.IsGuildMember(sender) then return false end
+    -- host z jiné guildy: jen pořadatel, kterému jsem sám poslal goldy
     local seen = ns.db.lotterySeen
     if seen and seen.host == sender then return true end
     local t = Lot.paidTo[sender]
