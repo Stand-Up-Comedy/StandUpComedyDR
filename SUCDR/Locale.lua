@@ -466,6 +466,7 @@ en.test_off = "Test mode off."
 cs.help = {
     "/sucdr - otevře okno",
     "/sucdr join - přidá tě do lobby ve skupině a otevře okno",
+    "/sucdr vyzva [Jmeno] - vyzve hráče (nebo cíl) na duel o sázku z okna",
     "/sucdr roll - hodí za tebe správný rozsah",
     "/sucdr sync - synchronizuje dluhy s guildou",
     "/sucdr remind - vypíše moje otevřené dluhy",
@@ -484,6 +485,7 @@ cs.help = {
 en.help = {
     "/sucdr - opens the window",
     "/sucdr join - joins the lobby in your group and opens the window",
+    "/sucdr challenge [Name] - challenges a player (or your target) to a duel for the bet from the window",
     "/sucdr roll - rolls the correct range for you",
     "/sucdr sync - syncs debts with the guild",
     "/sucdr remind - lists my open debts",
@@ -499,6 +501,52 @@ en.help = {
     "/sucdr collect - (guild master only) collects the last 30 days of games from online guild members",
     "/sucdr collect on|off - (guild master only) automatic collecting after login",
 }
+
+---------------------------------------------------------------------------
+-- Výzva na duel
+---------------------------------------------------------------------------
+cs.chal_menu = "SUCDR: vyzvat na death roll (%s)"
+en.chal_menu = "SUCDR: challenge to a death roll (%s)"
+cs.chal_sent = "Výzva odeslána: %s, duel o %s. Čekám na odpověď..."
+en.chal_sent = "Challenge sent to %s, a duel for %s. Waiting for an answer..."
+cs.chal_need_name = "Napiš jméno hráče (/sucdr vyzva Jmeno), nebo si ho dej do cíle."
+en.chal_need_name = "Type the player's name (/sucdr challenge Name) or target them."
+cs.chal_no_test = "Výzvu nejde poslat v testovacím režimu."
+en.chal_no_test = "You can't send a challenge in test mode."
+cs.chal_no_answer = "%s na výzvu neodpověděl (nemá addon, nebo nereaguje)."
+en.chal_no_answer = "%s didn't answer the challenge (no addon, or not responding)."
+cs.chal_incoming = "%s tě vyzývá na death roll o %s!"
+en.chal_incoming = "%s challenges you to a death roll for %s!"
+cs.chal_accept = "Přijmout"
+en.chal_accept = "Accept"
+cs.chal_decline = "Odmítnout"
+en.chal_decline = "Decline"
+cs.chal_accepted = "%s výzvu přijal!"
+en.chal_accepted = "%s accepted the challenge!"
+cs.chal_accepted_me = "Výzva přijata, duel s %s hned začne."
+en.chal_accepted_me = "Challenge accepted, the duel with %s starts right away."
+cs.chal_accepted_invite = "Výzva přijata. %s tě pozve do skupiny, přijmi pozvánku (z jiné skupiny nejdřív odejdi)."
+en.chal_accepted_invite = "Challenge accepted. %s will invite you to a group, accept it (leave any other group first)."
+cs.chal_declined = "%s výzvu odmítl."
+en.chal_declined = "%s declined the challenge."
+cs.chal_busy = "%s teď nemůže, už hraje jinou hru."
+en.chal_busy = "%s can't right now, they're already in a game."
+cs.chal_inviting = "Zvu %s do skupiny, duel začne, jakmile pozvánku přijme."
+en.chal_inviting = "Inviting %s to the group, the duel starts as soon as they accept."
+cs.chal_group_timeout = "%s nepřišel do skupiny, výzva propadla."
+en.chal_group_timeout = "%s didn't join the group, the challenge expired."
+cs.chal_start = "Výzva: %s vs %s, duel o %s!"
+en.chal_start = "Challenge: %s vs %s, a duel for %s!"
+
+---------------------------------------------------------------------------
+-- Tooltip hráče
+---------------------------------------------------------------------------
+cs.tip_no_title = "zatím bez titulu"
+en.tip_no_title = "no title yet"
+cs.tip_stats = "Death roll: %d her, %d výher"
+en.tip_stats = "Death roll: %d games, %d wins"
+cs.set_tooltip = "Tituly v tooltipu hráče"
+en.set_tooltip = "Titles in player tooltips"
 
 ---------------------------------------------------------------------------
 -- Sběr her (guild master) a log od hostitele

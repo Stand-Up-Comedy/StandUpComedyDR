@@ -353,10 +353,11 @@ end
 
 -- Tooltip: GameTooltip kreslí font bez č, ř, ě, ů. Po Show() se řádky přepnou na font addonu
 -- (Inter, nebo font chatu) a po skrytí tooltipu se vrátí původní font.
+-- first: přepnout jen řádky od first dál (např. řádky addonu v tooltipu hráče)
 local tipFonts = {}
-function UI.CzechTooltip()
+function UI.CzechTooltip(first)
     local inter = ns.db and ns.db.font
-    for i = 1, GameTooltip:NumLines() do
+    for i = first or 1, GameTooltip:NumLines() do
         for _, side in ipairs({ "Left", "Right" }) do
             local fs = _G["GameTooltipText" .. side .. i]
             if fs and not tipFonts[fs] then
@@ -1210,6 +1211,8 @@ local function BuildSettings(p)
         ns.UpdateMinimapButton()
     end)
     sp.minimap:SetPoint("TOPLEFT", 2, -194)
+    sp.tooltip = Check(p, "set_tooltip", function(self) ns.db.tooltip = self:GetChecked() end)
+    sp.tooltip:SetPoint("TOPLEFT", 240, -194)
     sp.remind = Check(p, "set_remind", function(self) ns.db.remind = self:GetChecked() end)
     sp.remind:SetPoint("TOPLEFT", 2, -220)
     sp.font = Check(p, "set_font", function(self)
@@ -1256,6 +1259,7 @@ local function RefreshSettings()
     sp.sound:SetChecked(ns.db.sound)
     sp.autoOpen:SetChecked(ns.db.autoOpen)
     sp.minimap:SetChecked(ns.db.minimap)
+    sp.tooltip:SetChecked(ns.db.tooltip)
     sp.remind:SetChecked(ns.db.remind)
     sp.font:SetChecked(ns.db.font)
     sp.testMode:SetText(T(ns.Game.testMode and "btn_testmode_off" or "btn_testmode_on"))
@@ -1375,8 +1379,13 @@ end
 SLASH_SUCDR1 = "/sucdr"
 SlashCmdList.SUCDR = function(input)
     local cmd, arg = (input or ""):match("^(%S*)%s*(.-)%s*$")
+    local rawArg = arg
     cmd, arg = cmd:lower(), arg:lower()
-    if cmd == "test" then
+    if cmd == "vyzva" or cmd == "challenge" then
+        -- jméno se zadává s velkým písmenem jako ve hře, bez jména se vyzve cíl
+        local name = rawArg ~= "" and rawArg or (UnitIsPlayer("target") and ns.UnitFull("target"))
+        ns.Challenge.Send(name or nil)
+    elseif cmd == "test" then
         if arg == "clear" then
             ns.Ledger.ClearTest()
         else

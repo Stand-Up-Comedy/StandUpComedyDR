@@ -33,7 +33,8 @@ read_globals = {
     "UnitName", "UnitFullName", "UnitExists", "UnitIsPlayer", "UnitClass", "RAID_CLASS_COLORS",
     "IsInGroup", "IsInRaid", "IsInGuild", "GetGuildInfo", "GetNumGuildMembers", "GetGuildRosterInfo", "C_GuildInfo", "GetNumGroupMembers", "GetNumSubgroupMembers",
     "LE_PARTY_CATEGORY_INSTANCE",
-    "GetNormalizedRealmName", "GetRealmName", "Ambiguate",
+    "GetNormalizedRealmName", "GetRealmName", "Ambiguate", "C_PartyInfo", "InviteUnit",
+    "Menu", "TooltipDataProcessor",
     -- Chat, hody, trade
     "SendChatMessage", "RandomRoll", "RANDOM_ROLL_RESULT",
     "GetTargetTradeMoney", "GetPlayerTradeMoney", "ERR_TRADE_COMPLETE",

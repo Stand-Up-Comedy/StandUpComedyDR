@@ -346,6 +346,21 @@ function G.DoubleOrNothing()
     push()
 end
 
+-- Přijatá výzva (Challenge.lua): duel se založí a hned spustí, kdo začíná, rozhodne náhoda
+function G.ChallengeDuel(opponent, bet)
+    if G.testMode or not ns.IsInMyGroup(opponent) then return false end
+    local s = newLobby(bet, false, "duel")
+    if not s then return false end
+    local pair = { ns.Me(), opponent }
+    if math.random(1, 2) == 2 then pair[1], pair[2] = pair[2], pair[1] end
+    for _, n in ipairs(pair) do
+        s.players[#s.players + 1] = { name = n, state = "a", max = s.start, rolled = false }
+    end
+    announce(T("chal_start", ns.Display(ns.Me()), ns.Display(opponent), ns.Gold(bet)))
+    G.Start()
+    return true
+end
+
 -- Změna režimu: uloží se jako výchozí, v lobby ho hostitel mění i pro aktuální hru
 -- (kromě odvety double or nothing, ta je vždy duel)
 function G.SetMode(mode)

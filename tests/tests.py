@@ -170,3 +170,93 @@ check(w.p("Bob").run("return L.ParseGame('X;1;A-R;10;diff;B-R;A-R/B-R;A-R').lose
 
 print()
 print("CHYBY:", FAILS if FAILS else "žádné")
+
+
+# ===========================================================================
+# 0.11: výzva na duel
+# ===========================================================================
+from sim import World as _W
+FAILS_BEFORE = len(FAILS)
+
+# --- výzva ve stejné skupině: přijetí -> duel hned běží ----------------------
+w = _W(["Anna", "Bob", "Cyril"])
+a, b = w.p("Anna"), w.p("Bob")
+a.run("ns.db.bet = 2500; ns.Challenge.Send('Bob')"); w.pump()
+check(b.run("return ns.Challenge ~= nil") and any("vyzývá" in m for m in b.out()), "Výzva: Bob dostal výzvu")
+b.run("ns.Challenge.Answer(true)"); w.pump()
+check(state(a, "phase") == "running" and state(a, "mode") == "duel", "Výzva: po přijetí běží duel")
+check(state(a, "bet") == 2500 and state(a, "start") == 2500, "Výzva: duel o sázku vyzyvatele 2500")
+check(a.run("return #G.state.players") == 2, "Výzva: ve hře jsou jen oba hráči (ne Cyril)")
+check(state(b, "phase") == "running" and b.run("return G.FindPlayer('Bob-Drakthul') ~= nil"),
+      "Výzva: Bob vidí rozehraný duel")
+check(a.run("return ns.Challenge.Outgoing()") is None, "Výzva: po startu je výzva vyřízená")
+finish_duel(w, a, "Bob", 2500)
+check(debts(b) == "Bob-Drakthul>Anna-Drakthul:2500:O", "Výzva: dluh po duelu z výzvy", debts(b))
+
+# --- odmítnutí ------------------------------------------------------------
+w = _W(["Anna", "Bob"])
+a, b = w.p("Anna"), w.p("Bob")
+a.run("ns.Challenge.Send('Bob')"); w.pump()
+a.out()
+b.run("ns.Challenge.Answer(false)"); w.pump()
+check(any("odmítl" in m for m in a.out()) and state(a, "phase") is None, "Výzva: odmítnutí se ohlásí, hra nevznikne")
+
+# --- vyzvaný už hraje -> busy ----------------------------------------------
+w = _W(["Anna", "Bob", "Cyril"])
+a, b, c = w.p("Anna"), w.p("Bob"), w.p("Cyril")
+b.run("ns.db.mode = 'mass'; G.Create(100)"); w.pump()
+c.run("G.Join()"); w.pump()
+b.run("G.Start()"); w.pump()
+check(a.run("ns.Challenge.Send('Bob'); return ns.Challenge.Outgoing()") is None,
+      "Výzva: divák rozehrané hry ve skupině nemůže vyzývat (jedna hra na skupinu)")
+w.set_group([["Anna"], ["Bob", "Cyril"]])
+a.out()
+a.run("ns.Challenge.Send('Bob')"); w.pump()
+check(any("už hraje" in m for m in a.out()), "Výzva: hráč v rozehrané hře odpoví, že nemůže")
+
+# --- mimo skupinu: pozvání, duel začne po vstupu do skupiny ---------------
+w = _W(["Anna", "Bob"])
+w.set_group([["Anna"], ["Bob"]])
+a, b = w.p("Anna"), w.p("Bob")
+a.run("ns.Challenge.Send('Bob')"); w.pump()
+b.run("ns.Challenge.Answer(true)"); w.pump()
+check(a.run("return __invites[1]") == "Bob-Drakthul", "Výzva mimo skupinu: Bob dostal pozvánku")
+check(state(a, "phase") is None, "Výzva mimo skupinu: duel čeká na skupinu")
+w.set_group([["Anna", "Bob"]])
+check(state(a, "phase") == "running" and state(b, "phase") == "running", "Výzva mimo skupinu: po vstupu duel běží")
+
+# --- podvržené CHALOK od jiného hráče se ignoruje -------------------------
+w = _W(["Anna", "Bob", "Cyril"])
+a = w.p("Anna")
+a.run("ns.Challenge.Send('Bob')"); w.pump()
+oid = a.run("return ns.Challenge.Outgoing().id")
+a.run(f"__deliver('CHALOK', 'Cyril-Drakthul', '{oid}')")
+check(state(a, "phase") is None and not a.run("return ns.Challenge.Outgoing().accepted"),
+      "Výzva: přijetí od někoho jiného se ignoruje")
+
+# --- neplatná sázka ve výzvě se ignoruje ------------------------------------
+b = w.p("Bob")
+b.out()
+b.run("__deliver('CHAL', 'Cyril-Drakthul', 'x1;abc')")
+b.run("__deliver('CHAL', 'Cyril-Drakthul', 'x2;5000000')")
+check(not any("vyzývá" in m for m in b.out()), "Výzva: neplatná sázka se zahodí")
+
+# ===========================================================================
+# 0.11: tooltip
+# ===========================================================================
+w, a = setup(["Anna", "Bob"], "duel", 1000)
+finish_duel(w, a, "Bob", 1000)
+b = w.p("Bob")
+l1, l2 = b.run("return ns.Tooltip.Lines('Anna-Drakthul')")
+check("SUCDR" in l1 and "1 her, 1 výher" in l2, "Tooltip: Anna 1 hra 1 výhra", (l1, l2))
+check(b.run("return ns.Tooltip.Lines('Nikdo-Drakthul')") is None, "Tooltip: hráč bez her nic nepřidá")
+# 10 her -> Štamgast, cache se po nové hře obnoví
+for i in range(9):
+    a.run("G.Create(1000)"); w.pump(); b.run("G.Join()"); w.pump(); a.run("G.Start()"); w.pump()
+    finish_duel(w, a, "Bob", 1000)
+l1, l2 = b.run("return ns.Tooltip.Lines('Bob-Drakthul')")
+check("Štamgast" in l1 and "Smolař" in l1 and "10 her, 0 výher" in l2, "Tooltip: Bob po 10 prohrách Štamgast + Smolař", (l1, l2))
+check(l1.index("Štamgast") < l1.index("Smolař"), "Tooltip: hodnost je první")
+
+print()
+print("CHYBY 0.11:", FAILS[FAILS_BEFORE:] if len(FAILS) > FAILS_BEFORE else "žádné")

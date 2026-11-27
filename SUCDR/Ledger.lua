@@ -8,6 +8,9 @@ ns.Ledger = L
 
 local SYNC_DAYS = 30
 
+-- Zvyšuje se při každé změně uložených her (cache statistik pro tooltip)
+L.rev = 0
+
 local function db() return ns.db end
 
 ---------------------------------------------------------------------------
@@ -114,6 +117,7 @@ function L.AddGame(g, verified)
     if not g.id or not g.bet or db().games[g.id] then return false end
     if not verified then g.unverified = true end
     db().games[g.id] = g
+    L.rev = L.rev + 1
     for _, p in ipairs(g.players) do
         if p ~= g.winner and (not g.loser or p == g.loser) then
             local id = g.id .. ":" .. p
@@ -360,6 +364,7 @@ function L.ClearTest()
     for id, d in pairs(db().debts) do
         if d.test then db().debts[id] = nil end
     end
+    L.rev = L.rev + 1
     ns.Print(ns.T("test_cleared", n))
     ns.RefreshUI()
 end
@@ -378,6 +383,7 @@ end
 -- pokud k nim nezůstal otevřený dluh.
 local LOG_DAYS, DEBT_DAYS, GAME_DAYS = 14, 120, 365
 function L.Prune(now)
+    L.rev = L.rev + 1
     now = now or time()
     local logLimit, keepLimit = now - LOG_DAYS * 86400, now - DEBT_DAYS * 86400
     local gameLimit = now - GAME_DAYS * 86400

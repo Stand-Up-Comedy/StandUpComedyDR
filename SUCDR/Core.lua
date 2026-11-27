@@ -17,6 +17,7 @@ local defaults = {
     minimap = true,   -- ikona u minimapy
     minimapAngle = 200, -- poloha ikony na okraji minimapy (stupně)
     remind = true,    -- připomínat dluhy po přihlášení a ve skupině
+    tooltip = true,   -- tituly a počet her v tooltipu hráče
     font = true,      -- moderní font Inter (false = font z chatu)
     statsPeriod = "all", -- období statistik: "all", "30", "7"
     statsSort = "net",   -- řazení žebříčku: "net", "wins", "games"

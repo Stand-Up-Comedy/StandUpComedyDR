@@ -4,11 +4,13 @@ import sys, os
 from lupa import lua51
 
 ADDON = sys.argv[1]
-FILES = ["Core.lua", "Locale.lua", "Ledger.lua", "Game.lua"]
+FILES = ["Core.lua", "Locale.lua", "Ledger.lua", "Game.lua", "Challenge.lua", "Tooltip.lua"]
 REALM = "Drakthul"
 
 STUBS = r"""
 local me, others = ...
+__group = others -- kdo je se mnou ve skupině (jména bez realmu)
+__invites = {}
 __out = {}
 local _xp = xpcall
 function xpcall(f, h, ...) local a, n = {...}, select("#", ...) return _xp(function() return f(unpack(a, 1, n)) end, h) end
@@ -28,7 +30,7 @@ function UnitName(u) if u == "player" then return me end end
 function UnitFullName(u)
   if u == "player" then return me, "Drakthul" end
   local i = tonumber(u:match("^party(%d+)$") or "")
-  if i and others[i] then return others[i], "Drakthul" end
+  if i and __group[i] then return __group[i], "Drakthul" end
 end
 function UnitIsPlayer() return true end
 function UnitExists() return false end
@@ -40,9 +42,9 @@ function IsInGroup() return true end
 function IsInRaid() return false end
 function IsInGuild() return true end
 LE_PARTY_CATEGORY_INSTANCE = 2
-function IsInGroup(cat) if cat == 2 then return false end return true end
-function GetNumSubgroupMembers() return #others end
-function GetNumGroupMembers() return #others + 1 end
+function IsInGroup(cat) if cat == 2 then return false end return #__group > 0 end
+function GetNumSubgroupMembers() return #__group end
+function GetNumGroupMembers() return #__group + 1 end
 function GetTime() return __now end
 function time() return __clock end
 date = os.date
@@ -71,6 +73,7 @@ C_Timer = {
   NewTicker = function() return { Cancel = function() end } end,
 }
 function InCombatLockdown() return false end
+C_PartyInfo = { InviteUnit = function(n) __invites[#__invites + 1] = n end }
 function GetMoney() return 10^12 end
 SUCDR_DB = nil
 """
@@ -145,6 +148,16 @@ class World:
         for pl in self.players.values():
             pl.lua.globals()["__fire"]("CHAT_MSG_SYSTEM", msg)
         self.pump()
+
+    def set_group(self, groups):
+        """groups: seznam skupin (seznamů jmen); kdo v žádné není, je sám."""
+        for n, pl in self.players.items():
+            mates = next((g for g in groups if n in g), [n])
+            lst = "{" + ",".join(repr(o) for o in mates if o != n) + "}"
+            pl.lua.execute(f"__group = {lst}")
+        for pl in self.players.values():
+            pl.lua.execute("__fire('GROUP_ROSTER_UPDATE')")
+            self.pump()
 
     def tick(self, sec):
         for pl in self.players.values():
