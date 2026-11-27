@@ -4,27 +4,21 @@ Poznámky k verzím SUCDR. Při vydání nové verze sem přidej sekci `## x.y.z
 
 ## 0.12.0
 
-**Připojení jedním klikem**: když někdo ve skupině založí hru, vyskočí okno Přidat se / Ne, díky. `/sucdr join` i `join` v chatu fungují dál. Okno jde vypnout v Nastavení.
+**Nový režim Rozdíl**: všichni hodí jednou 1..sázka a nejnižší hod platí nejvyššímu rozdíl obou hodů. Při shodě nahoře nebo dole se hází znovu, když hodí všichni stejně, je remíza a nikdo nic neplatí. Kdo nehodí včas, počítá se mu 1.
 
-**Guildovní loterie** (záložka Loterie, `/sucdr loterie`): guild master ji vyhlásí, losy se platí předem tradem a addon sám přidělí čísla. Hrát může kdokoli (jde omezit jen na guildu). Čím víc losů se prodá, tím větší výhra. Na konci se zveřejní seznam losů a guild master vylosuje výherce veřejným /roll. Hráči vidí aktuální výhru a svoje losy. Dokud ji guild master nezveřejní, ostatní ji nevidí.
+**Dvojnásob nebo nic**: po skončeném duelu může hostitel tlačítkem „2× nebo nic“ založit odvetu stejné dvojice o všechno, co poražený dluží. Když odvetu vyhraje poražený, dluhy se smažou. Když prohraje, dluží dvojnásob a jde to zkusit znovu.
 
-Přibyly nové soubory, po aktualizaci je potřeba hru úplně restartovat.
+**Výzva na duel**: pravým klikem na hráče vyber „SUCDR: vyzvat na death roll“, nebo napiš `/sucdr vyzva Jmeno`. Hraje se o sázku z okna. Po přijetí tě addon pozve do skupiny (pokud v ní ještě nejste spolu) a duel se sám spustí.
 
-## 0.11.0
+**Připojení jedním klikem**: když někdo ve skupině založí hru, vyskočí okno Přidat se / Ne, díky. Jde vypnout v Nastavení, `/sucdr join` i `join` v chatu fungují dál.
 
-**Výzva na duel**: pravým klikem na hráče (v cíli, ve skupině, v guildě nebo v seznamu přátel) vyber „SUCDR: vyzvat na death roll“, nebo napiš `/sucdr vyzva Jmeno`. Hraje se o sázku z okna. Vyzvanému vyskočí okno Přijmout / Odmítnout. Po přijetí tě addon pozve do skupiny (pokud v ní ještě nejste spolu) a duel se sám spustí, žádné zakládání ani join.
+**Tituly v tooltipu**: po najetí myší na hráče uvidíš jeho tituly (Legenda, Smolař, High roller...) a počet her a výher. Jde vypnout v Nastavení.
 
-**Tituly v tooltipu**: po najetí myší na hráče uvidíš jeho tituly (Legenda, Smolař, High roller...) a počet her a výher. Vypnout jde v Nastavení.
+**Guildovní loterie** (záložka Loterie, `/sucdr loterie`): guild master ji vyhlásí, losy se platí předem tradem a na konci vylosuje výherce veřejným /roll. Čím víc losů se prodá, tím větší výhra. Dokud ji guild master nezveřejní, ostatní ji nevidí.
 
-Přibyly nové soubory, po aktualizaci je potřeba hru úplně restartovat (nestačí /reload). Výzva funguje jen mezi hráči s verzí 0.11.0.
+Opraveno několik drobných chyb.
 
-## 0.10.0
-
-Nový režim **Rozdíl**: všichni hodí jednou 1..sázka a nejnižší hod platí nejvyššímu rozdíl obou hodů. Při shodě nahoře nebo dole se hází znovu, když hodí všichni stejně, je remíza a nikdo nic neplatí. Kdo nehodí včas, počítá se mu 1.
-
-**Dvojnásob nebo nic**: po skončeném duelu může hostitel tlačítkem „2× nebo nic“ založit odvetu stejné dvojice o všechno, co poražený dluží. Když odvetu vyhraje poražený, dluhy se smažou a jsou si kvit. Když prohraje, dluží dvojnásob a jde to zkusit znovu.
-
-Odvetu správně vyrovná jen verze 0.10.0, aktualizujte prosím všichni. Rozdíl se se staršími verzemi hraje i počítá správně.
+**Po aktualizaci hru úplně restartuj** (nestačí /reload). Aktualizujte prosím všichni: výzva, odveta a loterie správně fungují jen mezi hráči s verzí 0.12.0.
 
 ## 0.9.6
 
