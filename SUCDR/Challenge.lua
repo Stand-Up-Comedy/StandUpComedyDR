@@ -195,6 +195,7 @@ ns.OnInit(function()
     if not Menu or not Menu.ModifyMenu then return end
     for _, tag in ipairs(MENUS) do
         pcall(Menu.ModifyMenu, tag, function(_, root, ctx)
+            if not ns.db.menuChallenge then return end
             local name = contextName(ctx)
             if not name or name == ns.Me() or ns.IsSecret(name) then return end
             root:CreateDivider()
