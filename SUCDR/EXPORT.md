@@ -124,7 +124,7 @@ Ve skutečném exportu jsou klíče seřazené abecedně a JSON je na jednom ř�
 
 ## Pole
 
-Všechny částky jsou v celých goldech. Všechny časy jsou Unix timestamp v sekundách (UTC). Jména jsou vždy `Jmeno-Realm`. Pole, která nemají hodnotu, v JSONu chybí: `loser` u jiných režimů než `ring`, `paidAt` u nezaplacených dluhů. Prázdný seznam je `[]`.
+Všechny částky jsou v celých goldech. Všechny časy jsou Unix timestamp v sekundách (UTC). Jména jsou vždy `Jmeno-Realm`. Pole, která nemají hodnotu, v JSONu chybí: `loser` u jiných režimů než `ring` a `diff`, `paidAt` u nezaplacených dluhů. Prázdný seznam je `[]`.
 
 ### Kořen
 
@@ -145,17 +145,17 @@ Všechny částky jsou v celých goldech. Všechny časy jsou Unix timestamp v s
 | `id` | text | unikátní id hry |
 | `time` | číslo | konec hry |
 | `host` | text | kdo hru založil |
-| `bet` | číslo | sázka |
-| `mode` | text | `duel`, `mass` (hromadný) nebo `ring` (okruh) |
+| `bet` | číslo | sázka (v režimu `diff` rozdíl hodů, tedy kolik se platí) |
+| `mode` | text | `duel`, `mass` (hromadný), `ring` (okruh) nebo `diff` (rozdíl, od 0.10.0) |
 | `players` | pole textů | všichni hráči |
 | `winner` | text | vítěz |
-| `loser` | text / chybí | jen v režimu `ring`: jediný, kdo platí |
+| `loser` | text / chybí | jen v režimech `ring` a `diff`: jediný, kdo platí |
 | `payout` | číslo | kolik vítěz celkem vyhrál (`bet` × počet platících) |
 | `verified` | bool | `true` = exportující postava hru sama viděla ve skupině. `false` = přišla jen zprávou přes guildu od hostitele (běžné, když u hry nebyla). |
 
 ### `debts[]`
 
-Každý poražený dluží vítězi sázku. V režimu `ring` platí jen `loser`.
+Každý poražený dluží vítězi sázku. V režimech `ring` a `diff` platí jen `loser`. Odveta „dvojnásob nebo nic“ (od 0.10.0) je obyčejný `duel`; když ji vyhraje původní poražený, dluhy obou her se vyrovnají a v exportu jsou zaplacené.
 
 | pole | typ | význam |
 |---|---|---|

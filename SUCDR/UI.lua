@@ -537,8 +537,22 @@ local function BuildGame(p)
     end)
     gp.target:SetPoint("LEFT", gp.leave, "RIGHT", GAP, 0)
 
-    gp.startBtn = Loc(Btn(p, "", W, 26, G.Start, true), "btn_start")
+    -- Po skončeném duelu se z tlačítka Spustit stane "2× nebo nic" (odveta double or nothing)
+    gp.startBtn = Btn(p, "", W, 26, function()
+        if G.DonOffer() then G.DoubleOrNothing() else G.Start() end
+    end, true)
     gp.startBtn:SetPoint("TOPLEFT", 0, -72)
+    gp.startBtn:HookScript("OnEnter", function(self)
+        local stake, loser, winner = G.DonOffer()
+        if not stake then return end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine(T("don_tip_title"))
+        GameTooltip:AddLine(T("don_tip", ns.Display(loser), ns.Display(winner), ns.Gold(stake), ns.Display(loser)),
+            1, 1, 1, true)
+        GameTooltip:Show()
+        UI.CzechTooltip()
+    end)
+    gp.startBtn:HookScript("OnLeave", function() GameTooltip:Hide() end)
     gp.cancel = Loc(Btn(p, "", W, 26, G.Cancel), "btn_cancel")
     gp.cancel:SetPoint("LEFT", gp.startBtn, "RIGHT", GAP, 0)
     -- Přepínač režimu: klik přepne na další režim
@@ -645,9 +659,16 @@ local function UpdateTimer()
     gp.timerText:SetText(("%d s"):format(math.ceil(left)))
 end
 
+local statusBody
 local function statusText(s)
+    if s and s.don then return ACCENT .. T("st_don") .. "|r" .. statusBody(s) end
+    return statusBody(s)
+end
+
+statusBody = function(s)
     if not s then return T("st_none") end
     local G = ns.Game
+    if s.phase == "done" and not s.winner then return T("st_draw") end
     if s.phase == "lobby" then
         return T("st_lobby", G.ModeName(s.choice), #s.players, ns.Gold(s.bet), s.start, ns.Display(s.host))
     elseif s.phase == "running" then
@@ -681,11 +702,13 @@ local function RefreshGame()
     gp.join:SetEnabled((lobby and not mine) and true or false)
     gp.leave:SetEnabled((lobby and mine) and true or false)
     gp.target:SetEnabled((lobby and host) and true or false)
-    gp.startBtn:SetEnabled((lobby and host and #s.players >= 2) and true or false)
+    local don = G.DonOffer() ~= nil
+    gp.startBtn:SetText(T(don and "btn_don" or "btn_start"))
+    gp.startBtn:SetEnabled((don or (lobby and host and #s.players >= 2)) and true or false)
     gp.cancel:SetEnabled((active and host) and true or false)
     local modeShown = (lobby and s.choice) or ns.db.mode or "auto"
     gp.mode:SetText(T("btn_mode", G.ModeName(modeShown)))
-    gp.mode:SetEnabled((not active or (lobby and host)) and true or false)
+    gp.mode:SetEnabled((not active or (lobby and host and not s.don)) and true or false)
 
     local prefix = ""
     if (s and s.test) or (not s and G.testMode) then prefix = ACCENT .. T("st_test_prefix") .. "|r" end

@@ -15,16 +15,17 @@ local function db() return ns.db end
 ---------------------------------------------------------------------------
 function L.SerializeGame(g)
     return table.concat({ g.id, g.time, g.host, g.bet, g.mode, g.winner, table.concat(g.players, "/"),
-        g.loser or "" }, ";")
+        g.loser or "", g.don or "" }, ";")
 end
 
 function L.ParseGame(s)
-    local id, t, host, bet, mode, winner, plist, loser = strsplit(";", s)
+    local id, t, host, bet, mode, winner, plist, loser, don = strsplit(";", s)
     if not plist or plist == "" or not id or id == "" then return nil end
     local g = {
         id = id, time = tonumber(t), host = host, bet = tonumber(bet),
         mode = mode, winner = winner, players = { strsplit("/", plist) },
         loser = (loser and loser ~= "") and loser or nil,
+        don = (don and don ~= "") and don or nil,
     }
     if not g.bet or g.bet < 1 or not g.time or #g.players < 2 then return nil end
     if not tContains(g.players, g.winner) or (g.loser and not tContains(g.players, g.loser)) then return nil end
@@ -42,8 +43,71 @@ function L.Verify(g)
     return true
 end
 
+---------------------------------------------------------------------------
+-- Double or nothing
+---------------------------------------------------------------------------
+-- Poražený duelu (v duelu platí ten, kdo není vítěz)
+local function duelLoser(g)
+    if g.mode ~= "duel" or #g.players ~= 2 then return nil end
+    return (g.players[1] == g.winner) and g.players[2] or g.players[1]
+end
+
+-- Hra a před ní všechny odvety, které prohrál stejný hráč proti stejnému vítězi
+local function donChain(g)
+    local loser = duelLoser(g)
+    local list, cur = { g }, g
+    while cur.don and #list < 50 do
+        local prev = db().games[cur.don]
+        if not prev or prev.winner ~= g.winner or duelLoser(prev) ~= loser then break end
+        list[#list + 1] = prev
+        cur = prev
+    end
+    return list, loser
+end
+
+-- O kolik se hraje odveta po duelu g: všechno, co poražený z řetězu her dluží vítězi.
+-- Jen když jsou všechny ty dluhy potvrzené a nezaplacené (ani částečně). Vrací sázku a poraženého.
+-- anyPaid: při vyrovnání nevadí, že dluh už je zaplacený (PAID od věřitele může
+-- dorazit dřív než záznam odvety)
+function L.DonStake(g, anyPaid)
+    if not g or g.unverified then return nil end
+    local chain, loser = donChain(g)
+    if not loser then return nil end
+    local sum = 0
+    for _, c in ipairs(chain) do
+        local d = db().debts[c.id .. ":" .. loser]
+        if not d or d.to ~= g.winner then return nil end
+        if not anyPaid and (d.paid or d.unconfirmed or (d.partial or 0) > 0) then return nil end
+        sum = sum + d.amount
+    end
+    return sum, loser
+end
+
+-- Dluh vyrovnaný odvetou: zaplaceno bez tradu. PAID rozešle jen věřitel (jen jemu ho ostatní věří).
+local function settle(id)
+    local d = db().debts[id]
+    if not d or d.paid then return end
+    d.settled = true
+    L.SetPaid(id, d.to == ns.Me())
+end
+
+-- Odveta g skončila. Vyhrál-li ji poražený předchozí hry, dluhy z celého řetězu
+-- i dluh z odvety se navzájem vyrovnají (sázka odvety = součet řetězu, ověří se).
+local function settleDon(g)
+    local prev = g.don and db().games[g.don]
+    if not prev or (prev.test or false) ~= (g.test or false) then return end
+    local stake, loser = L.DonStake(prev, true)
+    if not stake or stake ~= g.bet or g.winner ~= loser or duelLoser(g) ~= prev.winner then return end
+    for _, c in ipairs((donChain(prev))) do settle(c.id .. ":" .. loser) end
+    settle(g.id .. ":" .. prev.winner)
+    local me = ns.Me()
+    if me == loser or me == prev.winner then
+        ns.Print(ns.T("don_settled", ns.Display(loser), ns.Display(prev.winner)))
+    end
+end
+
 -- Uloží hru a vytvoří dluhy: každý poražený dluží sázku vítězi.
--- V okruhu (g.loser) platí jen jediný hráč.
+-- V okruhu a rozdílu (g.loser) platí jen jediný hráč.
 -- verified = false: hru jsme neviděli, dluhy se označí jako neověřené
 -- (nepočítají se do součtů, dokud je hráč nepotvrdí).
 function L.AddGame(g, verified)
@@ -62,6 +126,7 @@ function L.AddGame(g, verified)
             end
         end
     end
+    if verified and g.don then settleDon(g) end
     ns.RefreshUI()
     return true
 end

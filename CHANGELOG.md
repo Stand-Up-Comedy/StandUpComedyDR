@@ -2,6 +2,14 @@
 
 Poznámky k verzím SUCDR. Při vydání nové verze sem přidej sekci `## x.y.z` nahoru – text se použije jako popis releasu na GitHubu i jako changelog na CurseForge.
 
+## 0.10.0
+
+Nový režim **Rozdíl**: všichni hodí jednou 1..sázka a nejnižší hod platí nejvyššímu rozdíl obou hodů. Při shodě nahoře nebo dole se hází znovu, když hodí všichni stejně, je remíza a nikdo nic neplatí. Kdo nehodí včas, počítá se mu 1.
+
+**Dvojnásob nebo nic**: po skončeném duelu může hostitel tlačítkem „2× nebo nic“ založit odvetu stejné dvojice o všechno, co poražený dluží. Když odvetu vyhraje poražený, dluhy se smažou a jsou si kvit. Když prohraje, dluží dvojnásob a jde to zkusit znovu.
+
+Odvetu správně vyrovná jen verze 0.10.0, aktualizujte prosím všichni. Rozdíl se se staršími verzemi hraje i počítá správně.
+
 ## 0.9.6
 
 Guild master nove sbira hry z guildy automaticky minutu po prihlaseni (vypnuti: `/sucdr collect off`, zapnuti: `/sucdr collect on`). Po rucnim sberu addon rovnou nabidne zapsat export pro Discord bota, takze bot ma data za celou guildu.
