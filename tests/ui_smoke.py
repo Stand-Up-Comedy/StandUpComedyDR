@@ -88,6 +88,7 @@ ui("ns.Lottery.Close(); ns.UI.ShowLog('x', ns.Lottery.Report())", "Loterie: uzav
 ui("ns.Lottery.Cancel(); ns.RefreshUI()", "Loterie: zrušení")
 ui("__rank = 3; ns.db.lotterySeen = { id = 'a', host = 'Bob-Drakthul', status = 'drawn', prize = 1, price = 1, "
    "limit = 1, winner = 'Bob-Drakthul', number = 1, mine = '1-3,5' }; ns.RefreshUI()", "Loterie: pohled hráče")
+ui("ns.db.lotterySeen = nil; ns.UI.ShowTab('lottery'); ns.RefreshUI()", "Skrytá záložka u hráče")
 ui("SlashCmdList.SUCDR('loterie'); SlashCmdList.SUCDR('help')", "Příkazy")
 
 print()

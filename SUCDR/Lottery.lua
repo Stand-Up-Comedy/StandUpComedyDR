@@ -15,7 +15,8 @@ ns.Lottery = Lot
 
 local MAX_TICKETS = 1000000 -- víc /roll neumí
 local MAX_LOG = 500
-Lot.DEFAULTS = { price = 10000, limit = 20, step = 500000, bonus = 25000, bonusMax = 100000, share = 10, guests = true }
+Lot.DEFAULTS = { price = 10000, limit = 20, step = 500000, bonus = 25000, bonusMax = 100000, share = 10, guests = true,
+    public = false }
 
 local function L() return ns.db.lottery end
 local function isGM() return ns.Sync.IsGuildMaster() end
@@ -37,10 +38,12 @@ local function sendChat(msg, channel, target)
     end
 end
 
--- Veřejné oznámení: guildovní chat a skupina (hosté losování sledují v raidu)
+-- Veřejné oznámení: guildovní chat a skupina (hosté losování sledují v raidu).
+-- Nezveřejněná loterie (public = false) píše jen guild masterovi.
 local function publish(msg)
     ns.Print(msg)
-    if not ns.db.announce then return end
+    local l = L()
+    if not ns.db.announce or not (l and l.public) then return end
     if IsInGuild() then sendChat(msg, "GUILD") end
     local ch = ns.GroupChannel()
     if ch then sendChat(msg, ch) end
@@ -128,6 +131,7 @@ end
 
 local function sendTo(name)
     local l = L()
+    if not l.public then return end
     ns.Send("LOT", stateText(l), "WHISPER", name)
     local ranges = Lot.Ranges(name)
     if ranges ~= "" then ns.Send("LOTT", l.id .. ";" .. ranges, "WHISPER", name) end
@@ -136,6 +140,10 @@ end
 -- Po změně stavu: guildě, a když se změnil stav loterie, i kupujícím mimo guildu
 local function broadcast(toBuyers)
     local l = L()
+    if not l.public then
+        ns.RefreshUI()
+        return
+    end
     ns.SendGuild("LOT", stateText(l))
     if toBuyers then
         for _, name in ipairs(Lot.Buyers()) do
@@ -143,6 +151,13 @@ local function broadcast(toBuyers)
         end
     end
     ns.RefreshUI()
+end
+
+-- Kdo vidí záložku Loterie: guild master vždy, ostatní jen u zveřejněné loterie
+function Lot.Visible()
+    if isGM() then return true end
+    local seen = ns.db.lotterySeen
+    return seen ~= nil and seen.pub == true and seen.status ~= "cancelled"
 end
 
 ---------------------------------------------------------------------------
@@ -183,10 +198,12 @@ function Lot.Create(o)
     ns.db.lottery = {
         id = "L" .. time() .. math.random(100, 999), host = ns.Me(), status = "open", created = time(),
         price = o.price, limit = o.limit, step = o.step, bonus = o.bonus, bonusMax = o.bonusMax, share = o.share,
-        guests = o.guests and true or false, count = 0, sales = {}, back = {}, pending = {}, log = {}, paidOut = 0,
+        guests = o.guests and true or false, public = o.public and true or false,
+        count = 0, sales = {}, back = {}, pending = {}, log = {}, paidOut = 0,
     }
     ns.db.lotteryDefaults = { price = o.price, limit = o.limit, step = o.step, bonus = o.bonus,
-        bonusMax = o.bonusMax, share = o.share, guests = o.guests and true or false }
+        bonusMax = o.bonusMax, share = o.share, guests = o.guests and true or false,
+        public = o.public and true or false }
     log(("Vyhlášeno: cena %d, limit %d, bonus %d za %d (max %d), banka %d %%, hosté %s"):format(o.price, o.limit,
         o.bonus, o.step, o.bonusMax, o.share, tostring(o.guests and true or false)))
     publish(T(o.guests and "lot_created" or "lot_created_guild", ns.Gold(o.price), o.limit, ns.Display(ns.Me())))
@@ -484,7 +501,7 @@ ns.OnComm("LOT", function(sender, rest)
     ns.db.lotterySeen = {
         id = id, host = sender, status = status, prize = prize, price = price, limit = limit, guests = guests == "1",
         winner = (winner and winner ~= "") and winner or nil, number = tonumber(number),
-        mine = same and old.mine or nil,
+        mine = same and old.mine or nil, pub = true, -- posílají se jen zveřejněné loterie
     }
     if status == "open" and not same then ns.Print(T("lot_notice", ns.Display(sender), ns.Gold(price))) end
     ns.RefreshUI()

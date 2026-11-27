@@ -1276,8 +1276,21 @@ local refreshers = { game = RefreshGame, debts = RefreshDebts, history = Refresh
 -- stavební prvky pro další soubory (LotteryUI.lua)
 UI.kit = { Label = Label, Btn = Btn, Edit = Edit, Check = Check, Box = Box, CreateList = CreateList, Loc = Loc }
 
+-- Záložku Loterie vidí jen ten, komu patří; ostatní záložky se posunou, ať nezůstane díra
+local function updateTabs()
+    local lot = tabs.lottery
+    if not lot then return end
+    local show = ns.Lottery.Visible()
+    lot:SetShown(show)
+    tabs.stats:ClearAllPoints()
+    tabs.stats:SetPoint("LEFT", show and lot or tabs.history, "RIGHT", 2, 0)
+    if not show and current == "lottery" then current = "game" end
+end
+
 local function SelectTab(key)
     current = key
+    updateTabs()
+    key = current
     for k, panel in pairs(panels) do panel:SetShown(k == key) end
     for k, tab in pairs(tabs) do tab:SetSelected(k == key) end
     refreshers[key]()
@@ -1340,8 +1353,16 @@ local function Build()
 end
 
 function ns.RefreshUI()
-    if f and f:IsShown() then refreshers[current]() end
+    if f and f:IsShown() then
+        local before = current
+        updateTabs()
+        if before ~= current then SelectTab(current) else refreshers[current]() end
+    end
 end
+
+-- hodnost v guildě se po přihlášení načítá se zpožděním
+ns.On("GUILD_ROSTER_UPDATE", function() ns.RefreshUI() end)
+ns.On("PLAYER_GUILD_UPDATE", function() ns.RefreshUI() end)
 
 function UI.Toggle()
     if not f then
@@ -1408,7 +1429,7 @@ SlashCmdList.SUCDR = function(input)
     elseif cmd == "selftest" then
         ns.SelfTest.Run()
     elseif cmd == "loterie" or cmd == "lottery" then
-        UI.ShowTab("lottery")
+        if ns.Lottery.Visible() then UI.ShowTab("lottery") else ns.Print(T("lot_none")) end
     elseif cmd == "stats" then
         UI.ShowTab("stats")
     elseif cmd == "remind" then

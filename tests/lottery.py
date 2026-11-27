@@ -49,7 +49,7 @@ def trade(w, a, b, a_gives=0, b_gives=0, confirm=True):
         w.pump()
 
 
-OPTS = "{ price = 10000, limit = 20, step = 500000, bonus = 25000, bonusMax = 100000, share = 10, guests = %s }"
+OPTS = "{ price = 10000, limit = 20, step = 500000, bonus = 25000, bonusMax = 100000, share = 10, guests = %s, public = true }"
 
 
 def create(w, guests="true"):
@@ -214,6 +214,25 @@ trade(w, "Cyril", "Anna", a_gives=10000, confirm=False)
 check(not a.run("return ns.Lottery.Close()"), "S čekající platbou nejde uzavřít prodej")
 a.run("ns.Lottery.Cancel()")
 check(lot(w, f"l.back['Cyril{R}']") == 10000, "Zrušení: čekající platba jde k vrácení")
+
+# --- nezveřejněná loterie: nic do guildy, ostatní ji nevidí -----------------------------
+w = world()
+a, b = w.p("Anna"), w.p("Bob")
+check(a.run("return ns.Lottery.DEFAULTS.public") is False, "Výchozí je nezveřejněná loterie")
+a.run("__chat = {}; ns.Lottery.Create(ns.Lottery.DEFAULTS)"); w.pump()
+trade(w, "Bob", "Anna", a_gives=20000)
+trade(w, "Cyril", "Anna", a_gives=10000)
+a.run("ns.Lottery.Close()"); w.pump()
+chans = a.run("local t = {} for _, c in ipairs(__chat) do t[#t+1] = c[2] end return table.concat(t, ',')")
+check(set(chans.split(",")) == {"WHISPER"}, "Jen šepty kupujícím, nic do guildy ani skupiny", chans)
+check(b.run("return ns.db.lotterySeen") is None and b.run("return ns.Lottery.Visible()") is False,
+      "Hráč loterii nevidí")
+b.run("ns.SendGuild('LOTQ', '')"); w.pump()
+check(b.run("return ns.db.lotterySeen") is None, "Ani na dotaz po přihlášení")
+check(a.run("return ns.Lottery.Visible()") is True, "Guild master záložku vidí")
+w = world()
+create(w)
+check(w.p("Bob").run("return ns.Lottery.Visible()") is True, "Zveřejněnou loterii hráč vidí")
 
 print()
 print("CHYBY loterie:", FAILS or "žádné")

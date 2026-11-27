@@ -16,7 +16,8 @@ local function confirm(text, fn)
 end
 
 local function readForm()
-    local o = { guests = lp.guests:GetChecked() and true or false }
+    local o = { guests = lp.guests:GetChecked() and true or false,
+        public = lp.public:GetChecked() and true or false }
     for _, k in ipairs(FIELDS) do o[k] = math.floor(tonumber(lp.edit[k]:GetText()) or 0) end
     return o
 end
@@ -50,6 +51,8 @@ local function build(p)
     end
     lp.guests = K.Check(lp.form, "lot_guests", function() end)
     lp.guests:SetPoint("TOPLEFT", 2, -220)
+    lp.public = K.Check(lp.form, "lot_public", function() end)
+    lp.public:SetPoint("TOPLEFT", 2, -244)
     lp.create = K.Loc(K.Btn(lp.form, "", 214, 28, function()
         local o = readForm()
         local err = Lot.Validate(o)
@@ -59,7 +62,7 @@ local function build(p)
         end
         confirm(T("lot_confirm_create", ns.Gold(o.price), o.limit), function() Lot.Create(o) end)
     end, true), "lot_create")
-    lp.create:SetPoint("TOPLEFT", 0, -252)
+    lp.create:SetPoint("TOPLEFT", 0, -274)
     lp.back = K.Loc(K.Btn(lp.form, "", 120, 28, function()
         lp.showForm = false
         ns.RefreshUI()
@@ -144,6 +147,7 @@ local function refresh()
             local d = ns.db.lotteryDefaults or Lot.DEFAULTS
             for _, k in ipairs(FIELDS) do lp.edit[k]:SetText(tostring(d[k])) end
             lp.guests:SetChecked(d.guests)
+            lp.public:SetChecked(d.public)
         end
         lp.status:SetText(T("lot_none"))
         return

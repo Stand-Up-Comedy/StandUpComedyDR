@@ -147,7 +147,7 @@ check(a.run("return G.state == nil"), "Odveta se po odchodu hráče zruší",
 # --- 2) loterie: dlužník pošle víc, než dluží, a zvolí Dluh -----------------------
 w = Net(["Anna", "Bob", "Cyril"])
 a = w.p("Anna")
-a.run("ns.UI.Confirm = function(_, b) __confirm = b end; ns.Lottery.Create(ns.Lottery.DEFAULTS)"); w.step(3)
+a.run("ns.UI.Confirm = function(_, b) __confirm = b end; ns.Lottery.DEFAULTS.public = true; ns.Lottery.Create(ns.Lottery.DEFAULTS)"); w.step(3)
 a.run(f"L.AddGame({{ id = 'g1', time = time(), host = 'Anna{R}', bet = 3000, mode = 'duel', winner = 'Anna{R}', "
       f"players = {{ 'Anna{R}', 'Bob{R}' }} }}, true)")
 trade(w, "Bob", "Anna", 25000)
