@@ -41,6 +41,15 @@ function S.IsGuildMasterName(name)
     return false
 end
 
+function S.IsGuildMember(name)
+    if not name or not IsInGuild() then return false end
+    for i = 1, GetNumGuildMembers() do
+        local n = GetGuildRosterInfo(i)
+        if n and ns.Normalize(n) == name then return true end
+    end
+    return false
+end
+
 ---------------------------------------------------------------------------
 -- Dorovnání zaplacených dluhů (OPEN -> PAID)
 ---------------------------------------------------------------------------
@@ -214,6 +223,7 @@ ns.OnComm("GAMEREC", function(sender, rest, channel)
         -- hru už mám (např. jako neověřenou z guild zprávy) - potvrzuje ji hostitel nebo hráč
         if old.unverified and not old.test then
             old.unverified = nil
+            L.rev = L.rev + 1
             old.collected = old.collected or sender
             collecting.games = collecting.games + 1
         end

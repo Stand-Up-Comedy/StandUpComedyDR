@@ -25,6 +25,7 @@ local function sampleState()
         id = "Žofie1732190000123", host = "Žofie-Drakthul", phase = "running", mode = "ring",
         bet = 12345, start = 1000, round = 3, curMax = 777, turn = 5, winner = nil,
         choice = "ring", loser = nil, players = {}, deadline = GetTime() + 25, limit = 30, created = 1732190000,
+        don = "Žofie1732180000456",
     }
     local states = { "a", "o", "s", "w" }
     for i = 1, 40 do
@@ -37,7 +38,7 @@ local function sampleState()
 end
 
 local FIELDS = { "id", "host", "phase", "mode", "bet", "start", "round", "curMax", "turn", "winner", "choice", "loser",
-    "limit", "created" }
+    "limit", "created", "don" }
 local PFIELDS = { "name", "max", "last", "state", "rolled" }
 
 local function testState()
@@ -66,12 +67,12 @@ local function testGame()
     local a = {
         id = "Žofie1732190000123", time = 1732190000, host = "Žofie-Drakthul", bet = 5000, mode = "ring",
         winner = "Řehoř-Drakthul", loser = "Čestmír-Drakthul",
-        players = { "Žofie-Drakthul", "Řehoř-Drakthul", "Čestmír-Drakthul" },
+        players = { "Žofie-Drakthul", "Řehoř-Drakthul", "Čestmír-Drakthul" }, don = "Žofie1732180000456",
     }
     local b = L.ParseGame(L.SerializeGame(a))
     check(b ~= nil, "Záznam hry: rozbalení")
     if not b then return end
-    for _, f in ipairs({ "id", "time", "host", "bet", "mode", "winner", "loser" }) do
+    for _, f in ipairs({ "id", "time", "host", "bet", "mode", "winner", "loser", "don" }) do
         check(a[f] == b[f], "Záznam hry: pole " .. f, ("%s ~= %s"):format(tostring(a[f]), tostring(b[f])))
     end
     check(table.concat(a.players, "/") == table.concat(b.players or {}, "/"), "Záznam hry: hráči")

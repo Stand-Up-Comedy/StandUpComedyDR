@@ -14,9 +14,11 @@ local defaults = {
     lang = "cs",      -- jazyk addonu: "cs" nebo "en"
     sound = true,     -- zvuk na tahu a při nové lobby
     autoOpen = true,  -- otevřít okno, když se přidám do hry
+    joinPopup = true, -- okno Přidat se, když ve skupině vznikne hra
     minimap = true,   -- ikona u minimapy
     minimapAngle = 200, -- poloha ikony na okraji minimapy (stupně)
     remind = true,    -- připomínat dluhy po přihlášení a ve skupině
+    tooltip = true,   -- tituly a počet her v tooltipu hráče
     font = true,      -- moderní font Inter (false = font z chatu)
     statsPeriod = "all", -- období statistik: "all", "30", "7"
     statsSort = "net",   -- řazení žebříčku: "net", "wins", "games"

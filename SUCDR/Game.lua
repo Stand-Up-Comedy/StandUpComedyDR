@@ -9,6 +9,10 @@
 --   ring - okruh: hází se po řadě (náhodné pořadí) se společným maximem, kdo hodí 1,
 --          platí sázku hráči, který házel před ním, a hra končí
 --   auto - volba při založení: 2 hráči = duel, víc = mass
+--   diff - rozdíl: všichni hodí jednou 1..start, nejnižší platí nejvyššímu rozdíl hodů
+--          (při shodě na nejvyšším nebo nejnižším hodu se hází znovu)
+-- Double or nothing: po duelu může hostitel založit odvetu stejné dvojice o všechno,
+-- co poražený dluží (s.don = id předchozí hry). Vyhraje-li poražený, dluhy se vyrovnají.
 local _, ns = ...
 local T = ns.T
 
@@ -16,7 +20,7 @@ local G = {}
 ns.Game = G
 G.state = nil
 
-G.MODES = { "auto", "duel", "mass", "ring" }
+G.MODES = { "auto", "duel", "mass", "ring", "diff" }
 function G.ModeName(m) return T("mode_" .. (m or "auto")) end
 function G.ModeHelp(m) return T("help_" .. (m or "auto")) end
 
@@ -113,7 +117,7 @@ local function serialize(s)
     return table.concat({
         s.id, s.host, s.phase, s.mode or "", s.bet, s.start, s.round or 0,
         s.curMax or 0, s.turn or 0, remaining, s.winner or "", table.concat(pl, "/"),
-        s.choice or "auto", s.loser or "", s.limit or 0, s.created or 0,
+        s.choice or "auto", s.loser or "", s.limit or 0, s.created or 0, s.don or "",
     }, ";")
 end
 
@@ -122,7 +126,7 @@ local PSTATES = { a = true, o = true, s = true, w = true }
 
 local function deserialize(str)
     local id, host, phase, mode, bet, start, round, curMax, turn, remaining, winner, plist, choice, loser, limit,
-        created = strsplit(";", str)
+        created, don = strsplit(";", str)
     if not plist or not PHASES[phase] or not id or id == "" or not host or host == "" then return nil end
     local s = {
         id = id, host = host, phase = phase, mode = (mode ~= "" and mode or nil),
@@ -131,6 +135,7 @@ local function deserialize(str)
         winner = (winner ~= "" and winner or nil), players = {}, isHost = false,
         choice = choice or "auto", loser = (loser and loser ~= "") and loser or nil,
         limit = tonumber(limit), created = tonumber(created) or 0,
+        don = (don and don ~= "") and don or nil,
     }
     if not s.bet or not s.start then return nil end
     remaining = tonumber(remaining)
@@ -206,7 +211,7 @@ local function scheduleBots()
     if not s or not s.test or s.phase ~= "running" then return end
     for idx, p in ipairs(s.players) do
         local needs = p.bot and p.state == "a" and not p.pending
-            and ((turnBased(s) and s.turn == idx) or (s.mode == "mass" and not p.rolled))
+            and ((turnBased(s) and s.turn == idx) or (not turnBased(s) and not p.rolled))
         if needs then
             p.pending = true
             local id = s.id
@@ -263,30 +268,36 @@ local function roundLimit()
     return math.max(0, math.min(G.MAX_LIMIT, math.floor(ns.db.roundTime or 0)))
 end
 
-function G.Create(bet)
+-- Nová lobby bez hráčů, nebo nil (a hláška), když ji teď nejde založit
+local function newLobby(bet, test, choice)
     local start = bet and math.min(bet, G.MAX_ROLL)
-    local test = G.testMode
     if not test and not ns.GroupChannel() then
         ns.Print(T("need_group"))
-        return
+        return nil
     end
     if G.ForeignStale() then G.state = nil end
     if G.state and G.state.phase ~= "done" then
         ns.Print(T("game_exists"))
-        return
+        return nil
     end
     if not bet or bet < 1 or not start or start < 2 then
         ns.Print(T("bad_bet"))
-        return
+        return nil
     end
-    local me = ns.Me()
     G.state = {
         id = UnitName("player") .. time() .. math.random(100, 999),
-        host = me, isHost = true, phase = "lobby", choice = ns.db.mode or "auto",
+        host = ns.Me(), isHost = true, phase = "lobby", choice = choice,
         bet = bet, start = start, round = 0, players = {}, test = test,
         limit = roundLimit(), created = time(),
     }
     seen[G.state.id] = true
+    return G.state
+end
+
+function G.Create(bet)
+    local test = G.testMode
+    if not newLobby(bet, test, ns.db.mode or "auto") then return end
+    local me, start = ns.Me(), G.state.start
     G.AddPlayer(me)
     if test then
         announce(T("test_created", G.ModeName(G.state.choice)))
@@ -297,11 +308,65 @@ function G.Create(bet)
     push()
 end
 
+---------------------------------------------------------------------------
+-- Double or nothing (hostitel, po skončeném duelu)
+---------------------------------------------------------------------------
+-- Jde po skončené hře nabídnout odvetu? Vrací sázku, poraženého, vítěze a záznam hry.
+function G.DonOffer()
+    local s = G.state
+    if not isHost() or s.phase ~= "done" or s.mode ~= "duel" or not s.winner then return nil end
+    local g = ns.db.games[s.id]
+    if not g then return nil end
+    local stake, loser = ns.Ledger.DonStake(g)
+    if not stake or stake > G.MAX_ROLL then return nil end
+    return stake, loser, g.winner, g
+end
+
+function G.DoubleOrNothing()
+    local stake, loser, winner, g = G.DonOffer()
+    if not stake then return end
+    local test = g.test and true or false
+    if not test then
+        for _, n in ipairs({ loser, winner }) do
+            if not ns.IsInMyGroup(n) then
+                ns.Print(T("not_in_group", ns.Display(n)))
+                return
+            end
+        end
+    end
+    local bots = {}
+    for _, p in ipairs(G.state.players) do bots[p.name] = p.bot end
+    local s = newLobby(stake, test, "duel")
+    if not s then return end
+    s.don = g.id
+    for _, n in ipairs({ loser, winner }) do
+        s.players[#s.players + 1] = { name = n, state = "a", max = s.start, rolled = false, bot = bots[n] }
+    end
+    announce(T("don_created", ns.Display(loser), ns.Display(winner), ns.Gold(stake)))
+    push()
+end
+
+-- Přijatá výzva (Challenge.lua): duel se založí a hned spustí, kdo začíná, rozhodne náhoda
+function G.ChallengeDuel(opponent, bet)
+    if G.testMode or not ns.IsInMyGroup(opponent) then return false end
+    local s = newLobby(bet, false, "duel")
+    if not s then return false end
+    local pair = { ns.Me(), opponent }
+    if math.random(1, 2) == 2 then pair[1], pair[2] = pair[2], pair[1] end
+    for _, n in ipairs(pair) do
+        s.players[#s.players + 1] = { name = n, state = "a", max = s.start, rolled = false }
+    end
+    announce(T("chal_start", ns.Display(ns.Me()), ns.Display(opponent), ns.Gold(bet)))
+    G.Start()
+    return true
+end
+
 -- Změna režimu: uloží se jako výchozí, v lobby ho hostitel mění i pro aktuální hru
+-- (kromě odvety double or nothing, ta je vždy duel)
 function G.SetMode(mode)
     ns.db.mode = mode
     local s = G.state
-    if isHost() and s.phase == "lobby" then
+    if isHost() and s.phase == "lobby" and not s.don then
         s.choice = mode
         announce(T("mode_changed", G.ModeName(mode)))
         push()
@@ -313,7 +378,7 @@ end
 function G.AddPlayer(name)
     local s = G.state
     if not isHost() or s.phase ~= "lobby" or not name then return end
-    if G.FindPlayer(name) then return end
+    if G.FindPlayer(name) or s.don then return end -- do odvety se nikdo nepřidává
     if not s.test and not ns.IsInMyGroup(name) then
         ns.Print(T("not_in_group", ns.Display(name)))
         return
@@ -331,6 +396,7 @@ function G.RemovePlayer(name)
     if not isHost() or s.phase ~= "lobby" then return end
     local _, idx = G.FindPlayer(name)
     if not idx then return end
+    if s.don then return G.Cancel() end -- odveta bez jednoho z dvojice nemá smysl
     table.remove(s.players, idx)
     announce(T("player_left", ns.Display(name), #s.players))
     push()
@@ -430,6 +496,9 @@ function G.Start()
         C_AddOns.GetAddOnMetadata("SUCDR", "Version") or "?", s.mode, s.bet, s.start,
         tostring(s.limit), tostring(s.test or false), ns.Lang(), names(s.players)))
 
+    if s.don then
+        announce(T("don_start", ns.Gold(s.bet)))
+    end
     if mode == "duel" then
         s.curMax, s.turn, s.prev = s.start, 1, nil
         announce(T("duel_start", ns.Display(s.players[1].name), ns.Display(s.players[2].name), ns.Gold(s.bet),
@@ -440,6 +509,9 @@ function G.Start()
         announce(T("ring_start", ns.Gold(s.bet), n, names(s.players)))
         announce(T("ring_first", ns.Display(s.players[1].name), s.curMax))
         G.StartTurn()
+    elseif mode == "diff" then
+        announce(T("diff_start", n, s.start))
+        G.NextRound()
     else
         announce(T("mass_start", n, ns.Gold(s.bet), ns.Gold(s.bet * (n - 1))))
         G.NextRound()
@@ -486,6 +558,48 @@ function G.NextRound()
     push()
 end
 
+-- Rozdíl: kdo nehodil včas, počítá se mu 1 (jinak by šlo počkat na hody ostatních a nehodit)
+local function resolveDiff()
+    local s = G.state
+    local list, idle = alive(), {}
+    for _, p in ipairs(list) do
+        if not p.rolled then
+            p.last = 1
+            idle[#idle + 1] = p
+        end
+    end
+    if #idle == #list then
+        announce(T("nobody_rolled"))
+        return G.Cancel()
+    end
+    if #idle > 0 then announce(T("diff_idle", names(idle))) end
+    local hi, lo
+    for _, p in ipairs(list) do
+        if not hi or p.last > hi then hi = p.last end
+        if not lo or p.last < lo then lo = p.last end
+    end
+    if hi == lo then
+        announce(T("diff_draw", hi))
+        return G.FinishDraw()
+    end
+    local top, bottom = {}, {}
+    for _, p in ipairs(list) do
+        if p.last == hi then top[#top + 1] = p end
+        if p.last == lo then bottom[#bottom + 1] = p end
+    end
+    if #top > 1 or #bottom > 1 then
+        announce(T("diff_tie", names(#top > 1 and top or bottom)))
+        for _, p in ipairs(list) do p.max = s.start end
+        return G.NextRound()
+    end
+    -- sázka hry = rozdíl: s ním jde konečný stav i záznam hry, takže dluh,
+    -- statistiky i ověření sedí i u starších verzí addonu
+    s.bet = hi - lo
+    local loser = ns.Display(bottom[1].name)
+    announce(T("diff_result", loser, lo, ns.Display(top[1].name), hi, loser, ns.Gold(s.bet)))
+    G.Finish(top[1].name, bottom[1].name, true)
+end
+
 function G.ResolveRound()
     local s = G.state
     if not s or s.phase ~= "running" then return end
@@ -496,6 +610,7 @@ function G.ResolveRound()
             tostring(p.last), tostring(p.max))
     end
     log(("Vyhodnocení kola %d: %s"):format(s.round, table.concat(dbg, " | ")))
+    if s.mode == "diff" then return resolveDiff() end
     local survivors, ones, idle = {}, {}, {}
     for _, p in ipairs(alive()) do
         if not p.rolled then
@@ -576,8 +691,32 @@ function G.OnRoll(name, roll, low, high)
     end
 end
 
--- loserName: jen v okruhu, kde platí jediný hráč. Jinak platí všichni kromě vítěze.
-function G.Finish(winnerName, loserName)
+-- Rozdíl bez vítěze (všichni hodili stejně): nikdo nic neplatí, hra se neukládá
+function G.FinishDraw()
+    local s = G.state
+    stopTimer()
+    s.phase, s.winner, s.loser = "done", nil, nil
+    for _, p in ipairs(s.players) do p.state = "s" end
+    log("Remíza, nikdo neplatí")
+    push()
+end
+
+-- Výsledek odvety double or nothing do chatu (místo běžného oznámení vítěze)
+local function announceDon(s, winnerName)
+    local prev = ns.db.games[s.don]
+    local stake, loser
+    if prev then stake, loser = ns.Ledger.DonStake(prev) end
+    if stake and winnerName == loser then
+        announce(T("don_even", ns.Display(loser), ns.Display(prev.winner)))
+    else
+        local other = (s.players[1].name == winnerName) and s.players[2] or s.players[1]
+        announce(T("don_double", ns.Display(other.name), ns.Gold((stake or s.bet) + s.bet), ns.Display(winnerName)))
+    end
+end
+
+-- loserName: v okruhu a rozdílu, kde platí jediný hráč. Jinak platí všichni kromě vítěze.
+-- quiet: výsledek už oznámil volající
+function G.Finish(winnerName, loserName, quiet)
     local s = G.state
     stopTimer()
     s.phase, s.winner, s.loser = "done", winnerName, loserName
@@ -592,7 +731,10 @@ function G.Finish(winnerName, loserName)
         end
         list[i] = p.name
     end
-    if loserName then
+    if quiet then -- luacheck: ignore 542 (výsledek oznámil volající)
+    elseif s.don then
+        announceDon(s, winnerName)
+    elseif loserName then
         announce(T("ring_lost", ns.Display(loserName), ns.Gold(s.bet), ns.Display(winnerName)))
     else
         local losers = #s.players - 1
@@ -604,7 +746,7 @@ function G.Finish(winnerName, loserName)
         end
     end
     local g = { id = s.id, time = time(), host = s.host, bet = s.bet, mode = s.mode, winner = winnerName,
-        loser = loserName, players = list, test = s.test or nil, log = s.log }
+        loser = loserName, players = list, test = s.test or nil, log = s.log, don = s.don }
     ns.Ledger.AddGame(g, true)
     -- nejdřív konečný stav, pak záznam hry (ostatní si ho ověří podle stavu)
     push()
@@ -677,6 +819,23 @@ local function keepCurrent(cur, new)
     return G.FindPlayer(me) ~= nil
 end
 
+-- Nová lobby ve skupině: okno s tlačítkem Přidat se (v boji jen hláška v chatu)
+local function offerJoin(s)
+    if not ns.db.joinPopup or s.don or InCombatLockdown() or not ns.UI or not ns.UI.Confirm or G.FindPlayer(ns.Me()) then return end
+    local id = s.id
+    ns.UI.Confirm(T("join_offer", ns.Display(s.host), G.ModeName(s.choice), ns.Gold(s.bet)), {
+        { T("join_yes"), function()
+            local cur = G.state
+            if cur and cur.id == id and cur.phase == "lobby" then
+                G.Join()
+            else
+                ns.Print(T("no_lobby"))
+            end
+        end, true },
+        { T("join_no") },
+    })
+end
+
 ns.OnComm("STATE", function(sender, rest)
     local s = deserialize(rest)
     if not s or s.host ~= sender then return end
@@ -694,16 +853,19 @@ ns.OnComm("STATE", function(sender, rest)
         cur = nil
     end
     if keepCurrent(cur, s) then return end
+    local newLobbyNotice = false
     if not seen[s.id] then
         seen[s.id] = true
         if s.phase == "lobby" then
             playSound(SOUNDKIT.IG_PLAYER_INVITE)
             ns.Print(T("lobby_notice", ns.Display(sender), G.ModeName(s.choice), ns.Gold(s.bet)))
+            newLobbyNotice = true
         end
     end
     s.lastUpdate = GetTime()
     G.state = s
     afterChange()
+    if newLobbyNotice then offerJoin(s) end
 end)
 
 -- Cizí hra, jejíž hostitel odešel ze skupiny, dal reload nebo spadl.

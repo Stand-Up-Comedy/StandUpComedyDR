@@ -353,10 +353,11 @@ end
 
 -- Tooltip: GameTooltip kreslí font bez č, ř, ě, ů. Po Show() se řádky přepnou na font addonu
 -- (Inter, nebo font chatu) a po skrytí tooltipu se vrátí původní font.
+-- first: přepnout jen řádky od first dál (např. řádky addonu v tooltipu hráče)
 local tipFonts = {}
-function UI.CzechTooltip()
+function UI.CzechTooltip(first)
     local inter = ns.db and ns.db.font
-    for i = 1, GameTooltip:NumLines() do
+    for i = first or 1, GameTooltip:NumLines() do
         for _, side in ipairs({ "Left", "Right" }) do
             local fs = _G["GameTooltipText" .. side .. i]
             if fs and not tipFonts[fs] then
@@ -537,8 +538,22 @@ local function BuildGame(p)
     end)
     gp.target:SetPoint("LEFT", gp.leave, "RIGHT", GAP, 0)
 
-    gp.startBtn = Loc(Btn(p, "", W, 26, G.Start, true), "btn_start")
+    -- Po skončeném duelu se z tlačítka Spustit stane "2× nebo nic" (odveta double or nothing)
+    gp.startBtn = Btn(p, "", W, 26, function()
+        if G.DonOffer() then G.DoubleOrNothing() else G.Start() end
+    end, true)
     gp.startBtn:SetPoint("TOPLEFT", 0, -72)
+    gp.startBtn:HookScript("OnEnter", function(self)
+        local stake, loser, winner = G.DonOffer()
+        if not stake then return end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine(T("don_tip_title"))
+        GameTooltip:AddLine(T("don_tip", ns.Display(loser), ns.Display(winner), ns.Gold(stake), ns.Display(loser)),
+            1, 1, 1, true)
+        GameTooltip:Show()
+        UI.CzechTooltip()
+    end)
+    gp.startBtn:HookScript("OnLeave", function() GameTooltip:Hide() end)
     gp.cancel = Loc(Btn(p, "", W, 26, G.Cancel), "btn_cancel")
     gp.cancel:SetPoint("LEFT", gp.startBtn, "RIGHT", GAP, 0)
     -- Přepínač režimu: klik přepne na další režim
@@ -645,9 +660,16 @@ local function UpdateTimer()
     gp.timerText:SetText(("%d s"):format(math.ceil(left)))
 end
 
+local statusBody
 local function statusText(s)
+    if s and s.don then return ACCENT .. T("st_don") .. "|r" .. statusBody(s) end
+    return statusBody(s)
+end
+
+statusBody = function(s)
     if not s then return T("st_none") end
     local G = ns.Game
+    if s.phase == "done" and not s.winner then return T("st_draw") end
     if s.phase == "lobby" then
         return T("st_lobby", G.ModeName(s.choice), #s.players, ns.Gold(s.bet), s.start, ns.Display(s.host))
     elseif s.phase == "running" then
@@ -681,11 +703,13 @@ local function RefreshGame()
     gp.join:SetEnabled((lobby and not mine) and true or false)
     gp.leave:SetEnabled((lobby and mine) and true or false)
     gp.target:SetEnabled((lobby and host) and true or false)
-    gp.startBtn:SetEnabled((lobby and host and #s.players >= 2) and true or false)
+    local don = G.DonOffer() ~= nil
+    gp.startBtn:SetText(T(don and "btn_don" or "btn_start"))
+    gp.startBtn:SetEnabled((don or (lobby and host and #s.players >= 2)) and true or false)
     gp.cancel:SetEnabled((active and host) and true or false)
     local modeShown = (lobby and s.choice) or ns.db.mode or "auto"
     gp.mode:SetText(T("btn_mode", G.ModeName(modeShown)))
-    gp.mode:SetEnabled((not active or (lobby and host)) and true or false)
+    gp.mode:SetEnabled((not active or (lobby and host and not s.don)) and true or false)
 
     local prefix = ""
     if (s and s.test) or (not s and G.testMode) then prefix = ACCENT .. T("st_test_prefix") .. "|r" end
@@ -1187,6 +1211,8 @@ local function BuildSettings(p)
         ns.UpdateMinimapButton()
     end)
     sp.minimap:SetPoint("TOPLEFT", 2, -194)
+    sp.tooltip = Check(p, "set_tooltip", function(self) ns.db.tooltip = self:GetChecked() end)
+    sp.tooltip:SetPoint("TOPLEFT", 240, -194)
     sp.remind = Check(p, "set_remind", function(self) ns.db.remind = self:GetChecked() end)
     sp.remind:SetPoint("TOPLEFT", 2, -220)
     sp.font = Check(p, "set_font", function(self)
@@ -1195,6 +1221,8 @@ local function BuildSettings(p)
         UpdateCheckHitRects()
     end)
     sp.font:SetPoint("TOPLEFT", 2, -246)
+    sp.joinPopup = Check(p, "set_joinpopup", function(self) ns.db.joinPopup = self:GetChecked() end)
+    sp.joinPopup:SetPoint("TOPLEFT", 240, -246)
 
     Header(p, "set_tools", -282)
     sp.testMode = Btn(p, "", 214, 26, UI.ToggleTestMode)
@@ -1233,8 +1261,10 @@ local function RefreshSettings()
     sp.sound:SetChecked(ns.db.sound)
     sp.autoOpen:SetChecked(ns.db.autoOpen)
     sp.minimap:SetChecked(ns.db.minimap)
+    sp.tooltip:SetChecked(ns.db.tooltip)
     sp.remind:SetChecked(ns.db.remind)
     sp.font:SetChecked(ns.db.font)
+    sp.joinPopup:SetChecked(ns.db.joinPopup)
     sp.testMode:SetText(T(ns.Game.testMode and "btn_testmode_off" or "btn_testmode_on"))
     sp.collect:SetShown(ns.Sync.IsGuildMaster())
     sp.version:SetText(T("set_version", version()))
@@ -1246,8 +1276,24 @@ end
 local refreshers = { game = RefreshGame, debts = RefreshDebts, history = RefreshHistory, stats = RefreshStats,
     settings = RefreshSettings }
 
+-- stavební prvky pro další soubory (LotteryUI.lua)
+UI.kit = { Label = Label, Btn = Btn, Edit = Edit, Check = Check, Box = Box, CreateList = CreateList, Loc = Loc }
+
+-- Záložku Loterie vidí jen ten, komu patří; ostatní záložky se posunou, ať nezůstane díra
+local function updateTabs()
+    local lot = tabs.lottery
+    if not lot then return end
+    local show = ns.Lottery.Visible()
+    lot:SetShown(show)
+    tabs.stats:ClearAllPoints()
+    tabs.stats:SetPoint("LEFT", show and lot or tabs.history, "RIGHT", 2, 0)
+    if not show and current == "lottery" then current = "game" end
+end
+
 local function SelectTab(key)
     current = key
+    updateTabs()
+    key = current
     for k, panel in pairs(panels) do panel:SetShown(k == key) end
     for k, tab in pairs(tabs) do tab:SetSelected(k == key) end
     refreshers[key]()
@@ -1265,11 +1311,11 @@ local function Build()
     f.subtitle:SetText(("v%s  -  Stand up Comedy death roll"):format(version()))
 
     local tabDefs = { { "game", "tab_game" }, { "debts", "tab_debts" }, { "history", "tab_history" },
-        { "stats", "tab_stats" }, { "settings", "tab_settings" } }
+        { "lottery", "tab_lottery" }, { "stats", "tab_stats" }, { "settings", "tab_settings" } }
     local prev
     for _, def in ipairs(tabDefs) do
         local key = def[1]
-        local tab = Loc(Tab(f, 92, function() SelectTab(key) end), def[2])
+        local tab = Loc(Tab(f, 76, function() SelectTab(key) end), def[2])
         if prev then tab:SetPoint("LEFT", prev, "RIGHT", 2, 0) else tab:SetPoint("TOPLEFT", 10, -34) end
         tabs[key] = tab
         prev = tab
@@ -1290,6 +1336,8 @@ local function Build()
     BuildHistory(panels.history)
     BuildStats(panels.stats)
     BuildSettings(panels.settings)
+    UI.lottery.build(panels.lottery)
+    refreshers.lottery = UI.lottery.refresh
     UpdateCheckHitRects()
 
     local acc = 0
@@ -1308,8 +1356,16 @@ local function Build()
 end
 
 function ns.RefreshUI()
-    if f and f:IsShown() then refreshers[current]() end
+    if f and f:IsShown() then
+        local before = current
+        updateTabs()
+        if before ~= current then SelectTab(current) else refreshers[current]() end
+    end
 end
+
+-- hodnost v guildě se po přihlášení načítá se zpožděním
+ns.On("GUILD_ROSTER_UPDATE", function() ns.RefreshUI() end)
+ns.On("PLAYER_GUILD_UPDATE", function() ns.RefreshUI() end)
 
 function UI.Toggle()
     if not f then
@@ -1352,8 +1408,13 @@ end
 SLASH_SUCDR1 = "/sucdr"
 SlashCmdList.SUCDR = function(input)
     local cmd, arg = (input or ""):match("^(%S*)%s*(.-)%s*$")
+    local rawArg = arg
     cmd, arg = cmd:lower(), arg:lower()
-    if cmd == "test" then
+    if cmd == "vyzva" or cmd == "challenge" then
+        -- jméno se zadává s velkým písmenem jako ve hře, bez jména se vyzve cíl
+        local name = rawArg ~= "" and rawArg or (UnitIsPlayer("target") and ns.UnitFull("target"))
+        ns.Challenge.Send(name or nil)
+    elseif cmd == "test" then
         if arg == "clear" then
             ns.Ledger.ClearTest()
         else
@@ -1370,6 +1431,8 @@ SlashCmdList.SUCDR = function(input)
         ns.Ledger.RequestSync()
     elseif cmd == "selftest" then
         ns.SelfTest.Run()
+    elseif cmd == "loterie" or cmd == "lottery" then
+        if ns.Lottery.Visible() then UI.ShowTab("lottery") else ns.Print(T("lot_none")) end
     elseif cmd == "stats" then
         UI.ShowTab("stats")
     elseif cmd == "remind" then

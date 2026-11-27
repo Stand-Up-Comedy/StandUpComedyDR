@@ -8,6 +8,9 @@ ns.Ledger = L
 
 local SYNC_DAYS = 30
 
+-- Zvyšuje se při každé změně uložených her (cache statistik pro tooltip)
+L.rev = 0
+
 local function db() return ns.db end
 
 ---------------------------------------------------------------------------
@@ -15,16 +18,17 @@ local function db() return ns.db end
 ---------------------------------------------------------------------------
 function L.SerializeGame(g)
     return table.concat({ g.id, g.time, g.host, g.bet, g.mode, g.winner, table.concat(g.players, "/"),
-        g.loser or "" }, ";")
+        g.loser or "", g.don or "" }, ";")
 end
 
 function L.ParseGame(s)
-    local id, t, host, bet, mode, winner, plist, loser = strsplit(";", s)
+    local id, t, host, bet, mode, winner, plist, loser, don = strsplit(";", s)
     if not plist or plist == "" or not id or id == "" then return nil end
     local g = {
         id = id, time = tonumber(t), host = host, bet = tonumber(bet),
         mode = mode, winner = winner, players = { strsplit("/", plist) },
         loser = (loser and loser ~= "") and loser or nil,
+        don = (don and don ~= "") and don or nil,
     }
     if not g.bet or g.bet < 1 or not g.time or #g.players < 2 then return nil end
     if not tContains(g.players, g.winner) or (g.loser and not tContains(g.players, g.loser)) then return nil end
@@ -42,14 +46,78 @@ function L.Verify(g)
     return true
 end
 
+---------------------------------------------------------------------------
+-- Double or nothing
+---------------------------------------------------------------------------
+-- Poražený duelu (v duelu platí ten, kdo není vítěz)
+local function duelLoser(g)
+    if g.mode ~= "duel" or #g.players ~= 2 then return nil end
+    return (g.players[1] == g.winner) and g.players[2] or g.players[1]
+end
+
+-- Hra a před ní všechny odvety, které prohrál stejný hráč proti stejnému vítězi
+local function donChain(g)
+    local loser = duelLoser(g)
+    local list, cur = { g }, g
+    while cur.don and #list < 50 do
+        local prev = db().games[cur.don]
+        if not prev or prev.winner ~= g.winner or duelLoser(prev) ~= loser then break end
+        list[#list + 1] = prev
+        cur = prev
+    end
+    return list, loser
+end
+
+-- O kolik se hraje odveta po duelu g: všechno, co poražený z řetězu her dluží vítězi.
+-- Jen když jsou všechny ty dluhy potvrzené a nezaplacené (ani částečně). Vrací sázku a poraženého.
+-- anyPaid: při vyrovnání nevadí, že dluh už je zaplacený (PAID od věřitele může
+-- dorazit dřív než záznam odvety)
+function L.DonStake(g, anyPaid)
+    if not g or g.unverified then return nil end
+    local chain, loser = donChain(g)
+    if not loser then return nil end
+    local sum = 0
+    for _, c in ipairs(chain) do
+        local d = db().debts[c.id .. ":" .. loser]
+        if not d or d.to ~= g.winner then return nil end
+        if not anyPaid and (d.paid or d.unconfirmed or (d.partial or 0) > 0) then return nil end
+        sum = sum + d.amount
+    end
+    return sum, loser
+end
+
+-- Dluh vyrovnaný odvetou: zaplaceno bez tradu. PAID rozešle jen věřitel (jen jemu ho ostatní věří).
+local function settle(id)
+    local d = db().debts[id]
+    if not d or d.paid then return end
+    d.settled = true
+    L.SetPaid(id, d.to == ns.Me())
+end
+
+-- Odveta g skončila. Vyhrál-li ji poražený předchozí hry, dluhy z celého řetězu
+-- i dluh z odvety se navzájem vyrovnají (sázka odvety = součet řetězu, ověří se).
+local function settleDon(g)
+    local prev = g.don and db().games[g.don]
+    if not prev or (prev.test or false) ~= (g.test or false) then return end
+    local stake, loser = L.DonStake(prev, true)
+    if not stake or stake ~= g.bet or g.winner ~= loser or duelLoser(g) ~= prev.winner then return end
+    for _, c in ipairs((donChain(prev))) do settle(c.id .. ":" .. loser) end
+    settle(g.id .. ":" .. prev.winner)
+    local me = ns.Me()
+    if me == loser or me == prev.winner then
+        ns.Print(ns.T("don_settled", ns.Display(loser), ns.Display(prev.winner)))
+    end
+end
+
 -- Uloží hru a vytvoří dluhy: každý poražený dluží sázku vítězi.
--- V okruhu (g.loser) platí jen jediný hráč.
+-- V okruhu a rozdílu (g.loser) platí jen jediný hráč.
 -- verified = false: hru jsme neviděli, dluhy se označí jako neověřené
 -- (nepočítají se do součtů, dokud je hráč nepotvrdí).
 function L.AddGame(g, verified)
     if not g.id or not g.bet or db().games[g.id] then return false end
     if not verified then g.unverified = true end
     db().games[g.id] = g
+    L.rev = L.rev + 1
     for _, p in ipairs(g.players) do
         if p ~= g.winner and (not g.loser or p == g.loser) then
             local id = g.id .. ":" .. p
@@ -62,6 +130,7 @@ function L.AddGame(g, verified)
             end
         end
     end
+    if verified and g.don then settleDon(g) end
     ns.RefreshUI()
     return true
 end
@@ -179,6 +248,17 @@ function L.OwedTo(creditor)
     return sum
 end
 
+-- Kolik mi hráč dluží (potvrzené nezaplacené dluhy)
+function L.OwedBy(debtor)
+    local me, sum = ns.Me(), 0
+    for _, d in pairs(db().debts) do
+        if not d.paid and not d.test and not d.unconfirmed and d.from == debtor and d.to == me then
+            sum = sum + L.Remaining(d)
+        end
+    end
+    return sum
+end
+
 local pendingPay
 function L.Pay(creditor)
     local T = ns.T
@@ -218,8 +298,11 @@ ns.On("TRADE_ACCEPT_UPDATE", updateTrade)
 ns.On("UI_INFO_MESSAGE", function(_, msg)
     if ns.IsSecret(msg) or msg ~= ERR_TRADE_COMPLETE or not trade.partner then return end
     local me = ns.Me()
-    L.ApplyPayment(trade.partner, me, math.floor((trade.target or 0) / 10000))
-    L.ApplyPayment(me, trade.partner, math.floor((trade.player or 0) / 10000))
+    local got, gave = math.floor((trade.target or 0) / 10000), math.floor((trade.player or 0) / 10000)
+    -- loterie si vezme platby za losy, vrácené přeplatky a výplatu výhry
+    if ns.Lottery then got, gave = ns.Lottery.OnTrade(trade.partner, got, gave) end
+    L.ApplyPayment(trade.partner, me, got)
+    L.ApplyPayment(me, trade.partner, gave)
     trade = {}
 end)
 
@@ -295,6 +378,7 @@ function L.ClearTest()
     for id, d in pairs(db().debts) do
         if d.test then db().debts[id] = nil end
     end
+    L.rev = L.rev + 1
     ns.Print(ns.T("test_cleared", n))
     ns.RefreshUI()
 end
@@ -313,6 +397,7 @@ end
 -- pokud k nim nezůstal otevřený dluh.
 local LOG_DAYS, DEBT_DAYS, GAME_DAYS = 14, 120, 365
 function L.Prune(now)
+    L.rev = L.rev + 1
     now = now or time()
     local logLimit, keepLimit = now - LOG_DAYS * 86400, now - DEBT_DAYS * 86400
     local gameLimit = now - GAME_DAYS * 86400
