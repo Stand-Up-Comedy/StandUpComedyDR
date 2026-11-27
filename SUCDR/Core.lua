@@ -14,6 +14,7 @@ local defaults = {
     lang = "cs",      -- jazyk addonu: "cs" nebo "en"
     sound = true,     -- zvuk na tahu a při nové lobby
     autoOpen = true,  -- otevřít okno, když se přidám do hry
+    joinPopup = true, -- okno Přidat se, když ve skupině vznikne hra
     minimap = true,   -- ikona u minimapy
     minimapAngle = 200, -- poloha ikony na okraji minimapy (stupně)
     remind = true,    -- připomínat dluhy po přihlášení a ve skupině

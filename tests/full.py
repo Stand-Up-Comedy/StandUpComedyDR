@@ -236,5 +236,11 @@ c.out(); c.run("__confirm[1][2]()"); w.step(3)
 check(a.run("return G.state == nil") and any("lobby" in m.lower() or "hr" in m.lower() for m in c.out()),
       "Klik po zrušení hry nic nerozbije")
 
+w = Net(["Anna", "Bob"])
+a, b = w.p("Anna"), w.p("Bob")
+b.run("__asked = 0; ns.db.joinPopup = false; ns.UI.Confirm = function() __asked = __asked + 1 end")
+a.run("G.Create(500)"); w.step(5)
+check(b.run("return __asked") == 0 and b.run("return G.state ~= nil"), "Vypnuté okno se neukáže, lobby ale hráč vidí")
+
 print()
 print("CHYBY celek:", FAILS or "žádné")

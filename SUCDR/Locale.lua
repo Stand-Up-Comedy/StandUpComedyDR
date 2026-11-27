@@ -551,6 +551,8 @@ cs.tip_no_title = "zatím bez titulu"
 en.tip_no_title = "no title yet"
 cs.tip_stats = "Death roll: %d her, %d výher"
 en.tip_stats = "Death roll: %d games, %d wins"
+cs.set_joinpopup = "Okno Přidat se u nové hry"
+en.set_joinpopup = "Join window for new games"
 cs.set_tooltip = "Tituly v tooltipu hráče"
 en.set_tooltip = "Titles in player tooltips"
 

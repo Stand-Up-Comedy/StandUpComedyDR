@@ -821,7 +821,7 @@ end
 
 -- Nová lobby ve skupině: okno s tlačítkem Přidat se (v boji jen hláška v chatu)
 local function offerJoin(s)
-    if s.don or InCombatLockdown() or not ns.UI or not ns.UI.Confirm or G.FindPlayer(ns.Me()) then return end
+    if not ns.db.joinPopup or s.don or InCombatLockdown() or not ns.UI or not ns.UI.Confirm or G.FindPlayer(ns.Me()) then return end
     local id = s.id
     ns.UI.Confirm(T("join_offer", ns.Display(s.host), G.ModeName(s.choice), ns.Gold(s.bet)), {
         { T("join_yes"), function()
