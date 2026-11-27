@@ -819,6 +819,23 @@ local function keepCurrent(cur, new)
     return G.FindPlayer(me) ~= nil
 end
 
+-- Nová lobby ve skupině: okno s tlačítkem Přidat se (v boji jen hláška v chatu)
+local function offerJoin(s)
+    if s.don or InCombatLockdown() or not ns.UI or not ns.UI.Confirm or G.FindPlayer(ns.Me()) then return end
+    local id = s.id
+    ns.UI.Confirm(T("join_offer", ns.Display(s.host), G.ModeName(s.choice), ns.Gold(s.bet)), {
+        { T("join_yes"), function()
+            local cur = G.state
+            if cur and cur.id == id and cur.phase == "lobby" then
+                G.Join()
+            else
+                ns.Print(T("no_lobby"))
+            end
+        end, true },
+        { T("join_no") },
+    })
+end
+
 ns.OnComm("STATE", function(sender, rest)
     local s = deserialize(rest)
     if not s or s.host ~= sender then return end
@@ -836,16 +853,19 @@ ns.OnComm("STATE", function(sender, rest)
         cur = nil
     end
     if keepCurrent(cur, s) then return end
+    local newLobbyNotice = false
     if not seen[s.id] then
         seen[s.id] = true
         if s.phase == "lobby" then
             playSound(SOUNDKIT.IG_PLAYER_INVITE)
             ns.Print(T("lobby_notice", ns.Display(sender), G.ModeName(s.choice), ns.Gold(s.bet)))
+            newLobbyNotice = true
         end
     end
     s.lastUpdate = GetTime()
     G.state = s
     afterChange()
+    if newLobbyNotice then offerJoin(s) end
 end)
 
 -- Cizí hra, jejíž hostitel odešel ze skupiny, dal reload nebo spadl.

@@ -4,6 +4,8 @@ Poznámky k verzím SUCDR. Při vydání nové verze sem přidej sekci `## x.y.z
 
 ## 0.12.0
 
+**Připojení jedním klikem**: když někdo ve skupině založí hru, vyskočí okno Přidat se / Ne, díky. `/sucdr join` i `join` v chatu fungují dál.
+
 **Guildovní loterie** (záložka Loterie, `/sucdr loterie`): guild master ji vyhlásí, losy se platí předem tradem a addon sám přidělí čísla. Hrát může kdokoli (jde omezit jen na guildu). Čím víc losů se prodá, tím větší výhra. Na konci se zveřejní seznam losů a guild master vylosuje výherce veřejným /roll. Hráči vidí aktuální výhru a svoje losy. Dokud ji guild master nezveřejní, ostatní ji nevidí.
 
 Přibyly nové soubory, po aktualizaci je potřeba hru úplně restartovat.

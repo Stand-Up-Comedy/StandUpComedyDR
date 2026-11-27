@@ -220,5 +220,21 @@ for i in range(6000):
         errors.append((t_, payload[:80], str(e)[:200]))
 check(not errors, "6000 náhodných zpráv bez chyby", (len(errors), errors[:4]))
 
+# --- okno Přidat se u nové lobby ------------------------------------------------------
+w = Net(["Anna", "Bob", "Cyril"])
+a, b, c = w.p("Anna"), w.p("Bob"), w.p("Cyril")
+for p in (b, c):
+    p.run("__asked = 0; ns.UI.Confirm = function(text, btn) __asked = __asked + 1; __confirm = btn end")
+a.run("ns.db.mode = 'mass'; G.Create(500)"); w.step(5)
+check(b.run("return __asked") == 1, "Nová lobby nabídne okno Přidat se", b.run("return __asked"))
+check(b.run("return G.FindPlayer('Bob-Drakthul')") is None, "Bez kliknutí se nikdo nepřidá")
+b.run("__confirm[1][2]()"); w.step(5)
+check(a.run("return G.FindPlayer('Bob-Drakthul') ~= nil"), "Tlačítko Přidat se přidá hráče")
+check(c.run("return __asked") == 1, "Další změny lobby okno neotevírají znovu", c.run("return __asked"))
+a.run("G.Cancel()"); w.step(5)
+c.out(); c.run("__confirm[1][2]()"); w.step(3)
+check(a.run("return G.state == nil") and any("lobby" in m.lower() or "hr" in m.lower() for m in c.out()),
+      "Klik po zrušení hry nic nerozbije")
+
 print()
 print("CHYBY celek:", FAILS or "žádné")
